@@ -95,10 +95,9 @@ class SphericalGMMNet(nn.Module):
         
     def forward(self, x):
         """
-        :param x: tensor (B, N, 3)
+        :param x: tensor (B, 1, 2b0, 2b0)
         """
-        x = utils.data_translation(x, self.bandwidth_0, self.density_radius)  # [B, N, 3] -> [B, 2b0, 2b0]
-        x = x.view(self.batch_size, 1, 2 * self.bandwidth_0, 2 * self.bandwidth_0)  # -> [B, 1, 2b0, 2b0]
+        
         
         # S2 Conv 
         x = self.conv1(x)  # -> [B, f1, 2b1, 2b1, 2b1]

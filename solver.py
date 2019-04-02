@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 import utils
+from os.path import join
 from logger import setup_logger
 import lie_learn.spaces.S2 as S2
 from model import SphericalGMMNet
@@ -74,7 +75,8 @@ def eval(test_iterator, model):
             if inputs.shape[-1] == 2:
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
-                
+            inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius'], params['sigma'])
+            inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # -> [B, 1, 2b0, 2b0]
             outputs = model(inputs)
             outputs = torch.argmax(outputs, dim=-1)
             acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
@@ -104,7 +106,7 @@ def train(params):
     cls_criterion = torch.nn.CrossEntropyLoss().cuda()
     
     logger.info("Start Training")
-
+    
     # Iterate by Epoch
     for epoch in range(params['num_epochs']):  # loop over the dataset multiple times
         running_loss = []
@@ -118,7 +120,18 @@ def train(params):
                 #inputs = map_points_onto_sphere(inputs, params['density_radius'])
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
+                
+            #Preprocessing
+            inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius'], params['sigma'])  # [B, N, 3] -> [B, 2b0, 2b0]
+            #Print images
+#             image_root = './imgs'
+#             for i in range(10):
+#                 img = inputs[i].cpu()
+#                 pyplot.imsave(join(image_root, str(labels[i])+'.png'), img)
+                
+                
     
+            inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # -> [B, 1, 2b0, 2b0]
     
             """ Run Model """
             outputs = model(inputs)
@@ -161,6 +174,7 @@ if __name__ == '__main__':
         'batch_size'    : args.batch_size,
         'num_points'    : args.num_points,
         
+        'sigma'         : args.sigma,
         'log_interval'  : args.log_interval,
         'baselr'        : args.baselr,
         'density_radius'        : args.density_radius,
@@ -172,7 +186,7 @@ if __name__ == '__main__':
 
         'num_classes': 10, 
 
-        'bandwidth_0': 8,
+        'bandwidth_0':    8,
         'bandwidth_out1': 8, 
         'bandwidth_out2': 6,  
         'bandwidth_out3': 4, 
