@@ -1,0 +1,8 @@
+2019-04-01 17:35:47 INFO     Loading Data
+2019-04-01 17:35:48 INFO     Model Setting Up
+2019-04-01 17:35:56 INFO     Start Training
+2019-04-01 17:36:09 INFO     Batch: [0/120] Epoch: [0] Loss: [2.2915310859680176]
+2019-04-01 17:36:20 INFO     Accuracy: [0.14181818181818182]
+
+2019-04-01 17:36:21 INFO     Batch: [1/120] Epoch: [0] Loss: [2.2945127487182617]
+2019-04-01 17:36:22 INFO     Batch: [2/120] Epoch: [0] Loss: [2.294844388961792]

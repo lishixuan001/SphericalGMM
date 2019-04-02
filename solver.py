@@ -14,6 +14,53 @@ from logger import setup_logger
 import lie_learn.spaces.S2 as S2
 from model import SphericalGMMNet
 from pdb import set_trace as st
+from matplotlib import pyplot
+from mpl_toolkits.mplot3d import Axes3D
+
+def map_points_onto_sphere(inputs, radius = 1):
+    #Assume input is B*N*2 ------> want result to be B*N*3 on sphere of radius R
+    
+    B, N, D = inputs.shape
+    inputs = inputs.cpu()
+    pyplot.scatter(inputs[0, :, 0], inputs[0, :, 1])
+    pyplot.savefig('books_read3.png')
+    
+    # Given a "mapping sphere" of radius R,
+    # the Mercator projection (x,y) of a given latitude and longitude is:
+    #    x = R * longitude
+    #    y = R * log( tan( (latitude + pi/2)/2 ) )
+
+    # and the inverse mapping of a given map location (x,y) is:
+    #   longitude = x / R
+    #   latitude = 2 * atan(exp(y/R)) - pi/2
+    # To get the 3D coordinates from the result of the inverse mapping:
+
+    # Given longitude and latitude on a sphere of radius S,
+    # the 3D coordinates P = (P.x, P.y, P.z) are:
+    #   P.x = S * cos(latitude) * cos(longitude)
+    #   P.y = S * cos(latitude) * sin(longitude)
+    #   P.z = S * sin(latitude)
+    
+    ##First step: scale inputs to be in [-pi/2, pi/2]^2
+    
+    # Result := ((Input - InputLow) / (InputHigh - InputLow))
+    #           * (OutputHigh - OutputLow) + OutputLow;
+    
+    max_in = torch.max(inputs, dim=1, keepdim=True)[0]     #B*2
+    min_in = torch.min(inputs, dim=1, keepdim=True)[0]     #B*2
+    inputs = ((inputs - min_in) / (max_in - min_in)) * (3.14) + (-1.57)
+    longs = inputs[:, :, 0]
+    lats = inputs[:, :, 1]
+    new_inputs = torch.zeros((B, N, 3))
+    new_inputs[:, :, 0] = radius * torch.cos(lats) * torch.cos(longs)
+    new_inputs[:, :, 1] = radius * torch.cos(lats) * torch.sin(longs)
+    new_inputs[:, :, 2] = radius * torch.sin(lats)
+    
+    fig = pyplot.figure()
+    ax = Axes3D(fig)
+    ax.scatter(new_inputs[0, :, 0], new_inputs[0, :, 1], new_inputs[0, :, 2])
+    pyplot.savefig('books_read2.png')
+    return new_inputs
 
 
         
@@ -43,8 +90,8 @@ def train(params):
     logger.info("Loading Data")
 
     # Load Data
-    test_iterator = utils.load_data(params['test_dir'], batch_size=params['batch_size'])
-    train_iterator = utils.load_data(params['train_dir'], batch_size=params['batch_size'])
+    test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'])
+    train_iterator = utils.load_data_h5(params['train_dir'], batch_size=params['batch_size'])
 
     logger.info("Model Setting Up")
     
@@ -65,12 +112,14 @@ def train(params):
 
             """ Variable Setup """
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
+            #print(labels[0])
             B, N, D = inputs.size()
-            
             if inputs.shape[-1] == 2:
+                #inputs = map_points_onto_sphere(inputs, params['density_radius'])
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
-            
+    
+    
             """ Run Model """
             outputs = model(inputs)
             
@@ -123,11 +172,11 @@ if __name__ == '__main__':
 
         'num_classes': 10, 
 
-        'bandwidth_0': 10,
-        'bandwidth_out1': 10, 
-        'bandwidth_out2': 8,  
-        'bandwidth_out3': 6, 
-        'bandwidth_out4': 4,
+        'bandwidth_0': 8,
+        'bandwidth_out1': 8, 
+        'bandwidth_out2': 6,  
+        'bandwidth_out3': 4, 
+        'bandwidth_out4': 2,
     }
 
     train(params)

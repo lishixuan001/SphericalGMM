@@ -10,15 +10,15 @@ import math
 
 def load_args():
     parser = argparse.ArgumentParser(description='HighDimSphere Train')
-    parser.add_argument('--data_path',      default='../mnistPC', type=str,   metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size',     default=100,          type=int,   metavar='N',   help='Batch size of test set')
+    parser.add_argument('--data_path',      default='../mnist', type=str,   metavar='XXX', help='Path to the model')
+    parser.add_argument('--batch_size',     default=500,          type=int,   metavar='N',   help='Batch size of test set')
     parser.add_argument('--num_epochs',     default=200,          type=int,   metavar='N',   help='Epoch to run')
     parser.add_argument('--num_points',     default=512,          type=int,   metavar='N',   help='Number of points in a image')
-    parser.add_argument('--log_interval',   default=10,           type=int,   metavar='N',   help='log_interval')
+    parser.add_argument('--log_interval',   default=1000,           type=int,   metavar='N',   help='log_interval')
     parser.add_argument('--sigma',          default=0.05,         type=float, metavar='N',   help='sigma of sdt')
-    parser.add_argument('--baselr',         default=1e-3 ,        type=float, metavar='N',   help='learning rate')
+    parser.add_argument('--baselr',         default=5e-5 ,        type=float, metavar='N',   help='learning rate')
     parser.add_argument('--gpu',            default='0,1',        type=str,   metavar='XXX', help='GPU number')
-    parser.add_argument('--density_radius', default=0.5,          type=float, metavar='XXX', help='Radius for density')
+    parser.add_argument('--density_radius', default=5,          type=float, metavar='XXX', help='Radius for density')
 
     args = parser.parse_args()
     return args
@@ -32,6 +32,19 @@ def load_data(data_dir, batch_size, shuffle=True, num_workers=4):
     train_loader_dataset = torch.utils.data.DataLoader(train_loader, batch_size=batch_size, shuffle = shuffle, num_workers=num_workers)
     train_data.close()
     return train_loader_dataset
+
+def load_data_h5(data_dir, batch_size, shuffle=True, num_workers=4):
+    #This dataset is 4-dimensional, delete second one b/c y is random
+    train_data = h5py.File(data_dir + "_data.h5" , 'r')
+    train_labels = h5py.File(data_dir + "_label.h5" , 'r')
+    xs = np.array(train_data['data'])
+    xs = np.delete(xs, 1, 2)
+    ys = np.array(train_labels['label'])
+    train_loader = torch.utils.data.TensorDataset(torch.from_numpy(xs).float(), torch.from_numpy(ys).long())
+    train_loader_dataset = torch.utils.data.DataLoader(train_loader, batch_size=batch_size, shuffle = shuffle, num_workers=num_workers)
+    train_data.close()
+    return train_loader_dataset
+
 
 
 def pairwise_distance(point_cloud):
@@ -66,6 +79,8 @@ def down_sampling(X, v, out_pts):
     X = X.view(-1, X.shape[-1])
     return X[k2]
 
+from matplotlib import pyplot
+from mpl_toolkits.mplot3d import Axes3D
 
 def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
     """
@@ -92,6 +107,12 @@ def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
 
     grid = torch.cat((x, y, z), dim=0)  # -> [3, 4b^2]
     grid = grid.transpose(0, 1) # -> [4b^2, 3]
+    
+#     fig = pyplot.figure()
+#     ax = Axes3D(fig)
+#     ax.scatter(grid[:, 0], grid[:, 1], grid[:, 2])
+#     pyplot.savefig('books_read.png')
+    
     grid = grid.view(2*b, 2*b, 3 ) # -> [2b, 2b, 3]
     
     return grid 
@@ -103,9 +124,17 @@ def density_mapping(inputs, radius, s2_grid):
     radius : radius to count neighbor for weights
     s2_grid : [2b, 2b, 3]
     """
+    inputss = inputs.cpu()
+    fig = pyplot.figure()
+    ax = Axes3D(fig)
+    ax.scatter(inputss[0, :, 0], inputss[0, :, 1], inputss[0, :, 2])
+    pyplot.savefig('digits.png')
+    
+    
+    
     B, N, D = inputs.size()
     b = int(s2_grid.size()[0] / 2)
-    
+
     # Get Weights
     dists = pairwise_distance(inputs)
     weights = (dists <= radius).sum(dim=1).float()
@@ -136,6 +165,8 @@ def density_mapping(inputs, radius, s2_grid):
     # Adjust Dimension
     density = density.view(B, 2*b, 2*b)  # -> [B, 2b, 2b]
     
+    
+    
     return density
     
     
@@ -146,7 +177,15 @@ def data_translation(inputs, bandwidth, radius):
     :param radius: radius of area to calculate weights by number of neighbors
     :return: [B, 2b, 2b]
     """
+#     inputs = inputs.cpu()
+#     fig = pyplot.figure()
+#     ax = Axes3D(fig)
+#     ax.scatter(inputs[0, :, 0], inputs[0, :, 1], inputs[0, :, 2])
+#     pyplot.savefig('books_read1.png')
+    
     inputs = inputs.cuda()
+    
+    
     
     s2_grid = get_grid(
         b=bandwidth
@@ -158,10 +197,34 @@ def data_translation(inputs, bandwidth, radius):
         s2_grid=s2_grid
     ).float()  # -> (B, 2b, 2b)
     
+#     inputs = inputs.cpu()
+#     s2_grid = s2_grid.cpu()
+#     x_length = inputs.size()[1]
+#     y_length = inputs.size()[2]
+
+#     img = inputs[0]
+#     fig = pyplot.figure()
+#     ax = Axes3D(fig)
+#     for x_val in range(x_length):
+#         for y_val in range(y_length):
+#             ax.scatter(s2_grid[x_val][y_val][0], s2_grid[x_val][y_val][1], s2_grid[x_val][y_val][2], color=str(float(img[x_val][y_val])))
+
+#     img = inputs[0]
+    
+#     fig, ax = pyplot.subplots(nrows=1, ncols=1)
+#     for x_val in range(x_length):
+#         for y_val in range(y_length):
+#             ax.scatter(x_val, y_val, color=str(float(img[x_val][y_val])))
+
+#     fig.savefig('correspond.png')
+#     pyplot.close(fig)
+    
     return inputs
 
 
+     
 
+    
 
 
 
