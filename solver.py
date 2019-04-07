@@ -44,6 +44,7 @@ def map_points_onto_sphere(inputs, radius = 1):
     
     ##First step: scale inputs to be in [-pi/2, pi/2]^2
     
+    
     # Result := ((Input - InputLow) / (InputHigh - InputLow))
     #           * (OutputHigh - OutputLow) + OutputLow;
     
@@ -68,10 +69,10 @@ def map_points_onto_sphere(inputs, radius = 1):
 def eval(test_iterator, model):
     acc_all = []
     for i, (inputs, labels) in enumerate(test_iterator):
-        if i <=10:
+        if i <= 10:
             inputs = Variable(inputs).cuda()
             B, N, D = inputs.size()
-            
+
             if inputs.shape[-1] == 2:
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
@@ -83,6 +84,40 @@ def eval(test_iterator, model):
         else:
             return np.mean(np.array(acc_all))
 
+def test(params, resume_iters):
+    num_pass = 1000
+    logger = setup_logger("SphericalGMMNet")
+    logger.info("Loading Data")
+    # Load Data
+    logger.info("Model Setting Up")
+    # Model Configuration Setup
+    model = SphericalGMMNet(params).cuda()
+    model = model.cuda()
+    logger.info('Loading the trained models from step {}...'.format(resume_iters))
+    model_path = os.path.join(params['save_dir'], '{}-model.ckpt'.format(resume_iters))
+    model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
+    for i in range(num_pass):
+        acc_all = []
+        test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
+        with torch.no_grad():
+            for i, (inputs, labels) in enumerate(test_iterator):
+                inputs = Variable(inputs).cuda()
+                B, N, D = inputs.size()
+
+                if inputs.shape[-1] == 2:
+                    zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
+                    inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
+
+                inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius'], params['sigma'])
+                inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # -> [B, 1, 2b0, 2b0]
+                outputs = model(inputs)
+                outputs = torch.argmax(outputs, dim=-1)
+                acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
+            print('Overall accuracy on testing set is '+str(np.mean(np.array(acc_all))))
+            logger.info('Accuracy: '+str(np.mean(np.array(acc_all))))
+
+            
+    
 
 def train(params):
     
@@ -99,6 +134,7 @@ def train(params):
     
     # Model Setup
     model = SphericalGMMNet(params).cuda()
+#     model = torch.nn.DataParallel(model)
     model = model.cuda()
 
     # Model Configuration Setup
@@ -106,9 +142,15 @@ def train(params):
     cls_criterion = torch.nn.CrossEntropyLoss().cuda()
     
     logger.info("Start Training")
+    for i in params.keys():
+        logger.info(i+": "+str(params[i]))
     
     # Iterate by Epoch
     for epoch in range(params['num_epochs']):  # loop over the dataset multiple times
+        if epoch % params['save_interval'] == 0:
+            save_path = os.path.join(params['save_dir'], '{}-model.ckpt'.format(epoch))
+            torch.save(model.state_dict(), save_path)
+            print('Saved model checkpoints into {}...'.format(save_path))
         running_loss = []
         for batch_idx, (inputs, labels) in enumerate(train_iterator):
 
@@ -123,11 +165,6 @@ def train(params):
                 
             #Preprocessing
             inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius'], params['sigma'])  # [B, N, 3] -> [B, 2b0, 2b0]
-            #Print images
-#             image_root = './imgs'
-#             for i in range(10):
-#                 img = inputs[i].cpu()
-#                 pyplot.imsave(join(image_root, str(labels[i])+'.png'), img)
                 
                 
     
@@ -151,6 +188,9 @@ def train(params):
             if batch_idx % params['log_interval'] == 0:
                 acc = eval(test_iterator, model)
                 logger.info("Accuracy: [{}]\n".format(acc))
+                
+        
+           
 
         acc = eval(test_iterator, model)
         logger.info("Epoch: [{epoch}/{total_epoch}] Loss: [{loss}] Accuracy: [{acc}]".format(epoch=epoch,
@@ -169,6 +209,7 @@ if __name__ == '__main__':
     params = {
         'train_dir' : os.path.join(args.data_path, "train"),
         'test_dir'  : os.path.join(args.data_path, "test"),
+        'save_dir'  : os.path.join('./', "save"),
         
         'num_epochs'    : args.num_epochs,
         'batch_size'    : args.batch_size,
@@ -176,24 +217,29 @@ if __name__ == '__main__':
         
         'sigma'         : args.sigma,
         'log_interval'  : args.log_interval,
+        'save_interval' : args.save_interval,
         'baselr'        : args.baselr,
-        'density_radius'        : args.density_radius,
+        'density_radius': args.density_radius,
         
         'feature_out1': 8,
         'feature_out2': 16, 
         'feature_out3': 32,
         'feature_out4': 64,
+        'feature_out5': 128,
 
         'num_classes': 10, 
 
-        'bandwidth_0':    8,
-        'bandwidth_out1': 8, 
-        'bandwidth_out2': 6,  
-        'bandwidth_out3': 4, 
-        'bandwidth_out4': 2,
+        'bandwidth_0':    10,
+        'bandwidth_out1': 10, 
+        'bandwidth_out2': 8,  
+        'bandwidth_out3': 6, 
+        'bandwidth_out4': 4,
+        'bandwidth_out5': 2,
     }
-
-    train(params)
+    if args.resume_testing:
+        test(params, args.resume_testing)
+    else:
+        train(params)
     
     
     

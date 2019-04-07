@@ -8,18 +8,30 @@ import lie_learn.spaces.S2 as S2
 import argparse
 import math
 
+def rotate_random():
+    Q, _ = np.linalg.qr(np.random.rand(3,3)*0.2)
+    if np.linalg.det(Q)==-1:
+        Q[:,0] = -Q[:,0]
+    return Q
+#     rotation matrix around n with phi degrees
+#     S = np.array([[0, -n[2], n[1]], [n[2], 0, -n[0]], [-n[1], n[0], 0]])
+#     I = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+#     return I + np.sin(phi) * S + (1 - np.cos(phi)) * S * S
+
+#   x:[-0.8, 0.8], y:[-0.8, 0.8], intensity:[-0.5, 0.5],
 def load_args():
     parser = argparse.ArgumentParser(description='Spherical GMM')
-    parser.add_argument('--data_path',      default='../mnist', type=str,   metavar='XXX', help='Path to the model')
+    parser.add_argument('--data_path',      default='../mnist',   type=str,   metavar='XXX', help='Path to the model')
     parser.add_argument('--batch_size',     default=500,          type=int,   metavar='N',   help='Batch size of test set')
-    parser.add_argument('--num_epochs',     default=200,          type=int,   metavar='N',   help='Epoch to run')
+    parser.add_argument('--num_epochs',     default=2000,         type=int,   metavar='N',   help='Epoch to run')
     parser.add_argument('--num_points',     default=512,          type=int,   metavar='N',   help='Number of points in a image')
-    parser.add_argument('--log_interval',   default=1000,           type=int,   metavar='N',   help='log_interval')
+    parser.add_argument('--log_interval',   default=1000,         type=int,   metavar='N',   help='log_interval')
     parser.add_argument('--sigma',          default=0.05,         type=float, metavar='N',   help='sigma of sdt')
     parser.add_argument('--baselr',         default=5e-5 ,        type=float, metavar='N',   help='learning rate')
     parser.add_argument('--gpu',            default='0,1',        type=str,   metavar='XXX', help='GPU number')
-    parser.add_argument('--density_radius', default=0.3,          type=float, metavar='XXX', help='Radius for density')
-
+    parser.add_argument('--density_radius', default=0.2,          type=float, metavar='XXX', help='Radius for density')
+    parser.add_argument('--save_interval',  default=50,           type=int,   metavar='N',   help='save_interval')
+    parser.add_argument('--resume_testing', default=0,            type=int,   metavar='N',   help='load used model at iteration')
     args = parser.parse_args()
     return args
 
@@ -33,19 +45,46 @@ def load_data(data_dir, batch_size, shuffle=True, num_workers=4):
     train_data.close()
     return train_loader_dataset
 
-def load_data_h5(data_dir, batch_size, shuffle=True, num_workers=4):
+# Result := ((Input - InputLow) / (InputHigh - InputLow))
+    #           * (OutputHigh - OutputLow) + OutputLow;
+    
+def load_data_h5(data_dir, batch_size, shuffle=True, num_workers=4, rotate=False, batch=False):
     #This dataset is 4-dimensional, delete second one b/c y is random
+    #np.random.seed(2)
     train_data = h5py.File(data_dir + "_data.h5" , 'r')
     train_labels = h5py.File(data_dir + "_label.h5" , 'r')
     xs = np.array(train_data['data'])
     xs = np.delete(xs, 1, 2)
+    if rotate:
+        if batch:
+            b = xs.shape[0]
+            xs = np.array([np.dot(xs[i], rotate_random()) for i in range(b)]) 
+        else:
+            rotation_matrix = rotate_random()
+            xs = np.dot(xs, rotation_matrix)
     
+#     x_min = np.amin(xs, axis=1, keepdims=True)
+#     x_max = np.amax(xs, axis=1, keepdims=True)
+#     out_max = np.array([0.8, 0.8, 0.5])
+#     out_min = np.array([-0.8, -0.8, -0.5])
+#     xs = (xs - x_min) / (x_max-x_min) * (out_max - out_min) + out_min
     ys = np.array(train_labels['label'])
     train_loader = torch.utils.data.TensorDataset(torch.from_numpy(xs).float(), torch.from_numpy(ys).long())
     train_loader_dataset = torch.utils.data.DataLoader(train_loader, batch_size=batch_size, shuffle = shuffle, num_workers=num_workers)
     train_data.close()
     return train_loader_dataset
 
+def direct_load_h5(data_dir, batch_size, shuffle=False, num_workers=4):
+    #This dataset is 4-dimensional, delete second one b/c y is random
+    train = h5py.File(data_dir, 'r')
+    xs = np.array(train['data'])
+    train_labels = h5py.File("../mnist/test_label.h5" , 'r')
+    
+    ys = np.array(train_labels['label'])
+    train_loader = torch.utils.data.TensorDataset(torch.from_numpy(xs).float(), torch.from_numpy(ys).long())
+    train_loader_dataset = torch.utils.data.DataLoader(train_loader, batch_size=batch_size, shuffle = shuffle, num_workers=num_workers)
+    train.close()
+    return train_loader_dataset
 
 
 def pairwise_distance(point_cloud):
@@ -147,16 +186,16 @@ def density_mapping(inputs, radius, s2_grid, sigma):
     numerator = -0.5 * numerator 
     numerator = torch.exp(numerator) # -> [B, N, 4b^2]
     
-    denominator = 1
+    denominator = np.sqrt((2*3.14)**D * sigma**D)
     
-    density = numerator / denominator# -> [B, N, 4b^2] 
+    #density = numerator / denominator# -> [B, N, 4b^2] 
     
     # Multiply Weights
 #     weights = weights.unsqueeze(-1) # -> [B, N, 1]
 #     density = density * weights # -> [B, N, 4b^2]
     
     # Sum Over Number of Points
-    density = density.sum(dim=1) # -> [B, 4b^2]
+    density = numerator.sum(dim=1) # -> [B, 4b^2]
     
     # Adjust Dimension
     density = density.view(B, 2*b, 2*b)  # -> [B, 2b, 2b]
