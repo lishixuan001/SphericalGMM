@@ -13,12 +13,8 @@ def rotate_random():
     if np.linalg.det(Q)==-1:
         Q[:,0] = -Q[:,0]
     return Q
-#     rotation matrix around n with phi degrees
-#     S = np.array([[0, -n[2], n[1]], [n[2], 0, -n[0]], [-n[1], n[0], 0]])
-#     I = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-#     return I + np.sin(phi) * S + (1 - np.cos(phi)) * S * S
 
-#   x:[-0.8, 0.8], y:[-0.8, 0.8], intensity:[-0.5, 0.5],
+
 def load_args():
     parser = argparse.ArgumentParser(description='Spherical GMM')
     parser.add_argument('--data_path',      default='../mnist',   type=str,   metavar='XXX', help='Path to the model')
@@ -45,12 +41,8 @@ def load_data(data_dir, batch_size, shuffle=True, num_workers=4):
     train_data.close()
     return train_loader_dataset
 
-# Result := ((Input - InputLow) / (InputHigh - InputLow))
-    #           * (OutputHigh - OutputLow) + OutputLow;
-    
+   
 def load_data_h5(data_dir, batch_size, shuffle=True, num_workers=4, rotate=False, batch=False):
-    #This dataset is 4-dimensional, delete second one b/c y is random
-    #np.random.seed(2)
     train_data = h5py.File(data_dir + "_data.h5" , 'r')
     train_labels = h5py.File(data_dir + "_label.h5" , 'r')
     xs = np.array(train_data['data'])
@@ -172,8 +164,6 @@ def density_mapping(inputs, radius, s2_grid, sigma):
 
     # Get Weights
     dists = pairwise_distance(inputs)
-#     weights = (dists <= radius).sum(dim=1).float()
-#     weights = weights / weights.sum(dim=1, keepdim=True) # -> [B, D]
     
     # Resize inputs and grid
     s2_grid = s2_grid.view(-1, D) # -> [4b^2, 3]
@@ -181,7 +171,8 @@ def density_mapping(inputs, radius, s2_grid, sigma):
     
     # Calculate Density
     numerator = inputs - s2_grid # -> [B, N, 4b^2, 3]
-    numerator = numerator * (1/sigma) * numerator
+    numerator = torch.matmul(numerator, sigma)
+    numerator = numerator * numerator
     numerator = torch.sum(numerator, dim=-1) # -> [B, N, 4b^2]
     numerator = -0.5 * numerator 
     numerator = torch.exp(numerator) # -> [B, N, 4b^2]
@@ -190,9 +181,6 @@ def density_mapping(inputs, radius, s2_grid, sigma):
     
     #density = numerator / denominator# -> [B, N, 4b^2] 
     
-    # Multiply Weights
-#     weights = weights.unsqueeze(-1) # -> [B, N, 1]
-#     density = density * weights # -> [B, N, 4b^2]
     
     # Sum Over Number of Points
     density = numerator.sum(dim=1) # -> [B, 4b^2]
