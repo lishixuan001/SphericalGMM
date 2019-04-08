@@ -56,12 +56,15 @@ def load_data_h5(data_dir, batch_size, shuffle=True, num_workers=4, rotate=False
             rotation_matrix = rotate_random()
             xs = np.dot(xs, rotation_matrix)
     
-#     x_min = np.amin(xs, axis=1, keepdims=True)
-#     x_max = np.amax(xs, axis=1, keepdims=True)
-#     out_max = np.array([0.8, 0.8, 0.5])
-#     out_min = np.array([-0.8, -0.8, -0.5])
-#     xs = (xs - x_min) / (x_max-x_min) * (out_max - out_min) + out_min
-    ys = np.array(train_labels['label'])
+    x_min = np.amin(xs, axis=1, keepdims=True)
+    x_max = np.amax(xs, axis=1, keepdims=True)
+    out_max = np.array([1, 1, 1])
+    out_min = np.array([-1, -1, -1])
+    xs = (xs - x_min) / (x_max-x_min) * (out_max - out_min) + out_min
+
+    print(xs.shape)    
+
+    ys = np.array(train_labels['label'])    
     train_loader = torch.utils.data.TensorDataset(torch.from_numpy(xs).float(), torch.from_numpy(ys).long())
     train_loader_dataset = torch.utils.data.DataLoader(train_loader, batch_size=batch_size, shuffle = shuffle, num_workers=num_workers)
     train_data.close()
