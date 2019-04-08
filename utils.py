@@ -231,15 +231,14 @@ def data_translation(inputs, bandwidth, radius):
         b=bandwidth
     ).float().cuda()  # -> [2b, 2b, 3]
 
-    inputs, sigma = density_mapping(
+    inputs = density_mapping(
         inputs=inputs,
         radius=radius,
         s2_grid=s2_grid
-    )  # -> (B, 2b, 2b)
-    inputs = inputs.float()
+    ).float()  # -> (B, 2b, 2b)
     
 
-    return inputs, sigma
+    return inputs
 
 
      
