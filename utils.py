@@ -212,7 +212,7 @@ def density_mapping(inputs, radius, s2_grid):
     # Adjust Dimension
     density = density.view(B, 2*b, 2*b)  # -> [B, 2b, 2b]
     
-    return density
+    return density, sigma_diag
     
     
     
@@ -231,14 +231,15 @@ def data_translation(inputs, bandwidth, radius):
         b=bandwidth
     ).float().cuda()  # -> [2b, 2b, 3]
 
-    inputs = density_mapping(
+    inputs, sigma = density_mapping(
         inputs=inputs,
         radius=radius,
         s2_grid=s2_grid
-    ).float()  # -> (B, 2b, 2b)
+    )  # -> (B, 2b, 2b)
+    inputs = inputs.float()
     
 
-    return inputs
+    return inputs, sigma
 
 
      
