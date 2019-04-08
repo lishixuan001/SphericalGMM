@@ -56,19 +56,22 @@ def load_data_h5(data_dir, batch_size, shuffle=True, num_workers=4, rotate=False
             rotation_matrix = rotate_random()
             xs = np.dot(xs, rotation_matrix)
     
-    x_min = np.amin(xs, axis=1, keepdims=True)
-    x_max = np.amax(xs, axis=1, keepdims=True)
-    out_max = np.array([1, 1, 1])
-    out_min = np.array([-1, -1, -1])
-    xs = (xs - x_min) / (x_max-x_min) * (out_max - out_min) + out_min
-
-    print(xs.shape)    
-
     ys = np.array(train_labels['label'])    
     train_loader = torch.utils.data.TensorDataset(torch.from_numpy(xs).float(), torch.from_numpy(ys).long())
     train_loader_dataset = torch.utils.data.DataLoader(train_loader, batch_size=batch_size, shuffle = shuffle, num_workers=num_workers)
     train_data.close()
     return train_loader_dataset
+
+
+def data_init_norm(inputs):
+    """
+    inputs : [B, N, 3]
+    """
+    maxs, _ = torch.max(inputs, dim=2, keepdim=True)
+    mins, _ = torch.min(inputs, dim=2, keepdim=True) 
+    inputs = (inputs - mins) / (maxs - mins) * 2 - 1
+    return inputs
+
 
 def direct_load_h5(data_dir, batch_size, shuffle=False, num_workers=4):
     #This dataset is 4-dimensional, delete second one b/c y is random
@@ -144,10 +147,10 @@ def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
     grid = torch.cat((x, y, z), dim=0)  # -> [3, 4b^2]
     grid = grid.transpose(0, 1) # -> [4b^2, 3]
     
-#     fig = pyplot.figure()
-#     ax = Axes3D(fig)
-#     ax.scatter(grid[:, 0], grid[:, 1], grid[:, 2])
-#     pyplot.savefig('books_read.png')
+    fig = pyplot.figure()
+    ax = Axes3D(fig)
+    ax.scatter(grid[:, 0], grid[:, 1], grid[:, 2])
+    pyplot.savefig('books_read.png')
     
     grid = grid.view(2*b, 2*b, 3 ) # -> [2b, 2b, 3]
     
@@ -159,9 +162,7 @@ def density_mapping(inputs, radius, s2_grid):
     inputs : [B, N, 3]
     radius : radius to count neighbor for weights
     s2_grid : [2b, 2b, 3]
-    """
-    
-    
+    """ 
     
     B, N, D = inputs.size()
     b = int(s2_grid.size()[0] / 2)
@@ -188,15 +189,16 @@ def density_mapping(inputs, radius, s2_grid):
     sigma_diag = sigma_diag.unsqueeze(2) # -> [B, N, 1, 3]
     
     # Normaliza Sigma (sum to 0.1) for each point
-    # sigma_diag = torch.div(sigma_diag, torch.sum(sigma_diag, dim=3, keepdim=True))
-    # print(sigma_diag[0][:10]) 
-
-    # For Testing With Sigma=0.05
-    sigma_diag = torch.tensor([0.05, 0.05, 0.05]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
+    sigma_diag = torch.div(sigma_diag, torch.sum(sigma_diag, dim=3, keepdim=True))
    
     # Adjust Sigma Values [0.2~0.7] -> [0.02~0.07]
     sigma_diag = sigma_diag / 10 
-    # print(sigma_diag[0][0])
+
+    # Mean Sigma for each point
+    sigma_diag = torch.mean(sigma_diag, dim=3, keepdim=True).repeat(1, 1, 1, 3) # -> [B, N, 1, 3]
+    
+    # For Testing With Sigma=0.05
+    # sigma_diag = torch.tensor([0.05, 0.05, 0.05]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
     
     sigma_inverse = 1 / sigma_diag
     middle = torch.mul(numerator, sigma_inverse)
