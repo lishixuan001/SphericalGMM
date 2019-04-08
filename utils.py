@@ -147,10 +147,10 @@ def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
     grid = torch.cat((x, y, z), dim=0)  # -> [3, 4b^2]
     grid = grid.transpose(0, 1) # -> [4b^2, 3]
     
-    fig = pyplot.figure()
-    ax = Axes3D(fig)
-    ax.scatter(grid[:, 0], grid[:, 1], grid[:, 2])
-    pyplot.savefig('books_read.png')
+    # fig = pyplot.figure()
+    # ax = Axes3D(fig)
+    # ax.scatter(grid[:, 0], grid[:, 1], grid[:, 2])
+    # pyplot.savefig('books_read.png')
     
     grid = grid.view(2*b, 2*b, 3 ) # -> [2b, 2b, 3]
     
