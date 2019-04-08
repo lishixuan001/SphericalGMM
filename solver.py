@@ -132,7 +132,15 @@ def train(params):
 
             inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius']) # [B, N, 3] -> [B, 2b0, 2b0]
             inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
-                 
+       
+            """ Visualize Sphere """
+            for i in range(10):
+                data = inputs[i][0].cpu().numpy()
+                print("Label: {}".format(labels[i].item()))
+                plt.imshow(data)
+                plt.savefig(os.path.join("imgs", "sum" + str(labels[i].item()))) 
+            return
+          
             """ Run Model """
             outputs = model(inputs)
             

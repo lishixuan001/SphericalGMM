@@ -183,7 +183,11 @@ def density_mapping(inputs, radius, s2_grid):
     sigma_diag = torch.gather(sigma, 2, index) # -> [B, N, 3, 3]
     sigma_diag = sigma_diag[:, :, 0, :] # -> [B, N, 3]
     sigma_diag = sigma_diag.unsqueeze(2) # -> [B, N, 1, 3]
-  
+    
+    # Normaliza Sigma (sum to 0.1) for each point
+    sigma_diag = torch.div(sigma_diag, torch.sum(sigma_diag, dim=3, keepdim=True))
+    print(sigma_diag[0][:10]) 
+
     # For Testing With Sigma=0.05
     # sigma_diag = torch.tensor([0.05, 0.05, 0.05]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
    
@@ -212,7 +216,7 @@ def density_mapping(inputs, radius, s2_grid):
     # Adjust Dimension
     density = density.view(B, 2*b, 2*b)  # -> [B, 2b, 2b]
     
-    return density, sigma_diag
+    return density
     
     
     
