@@ -19,7 +19,7 @@ def load_args():
     parser = argparse.ArgumentParser(description='Spherical GMM')
     parser.add_argument('--data_path',      default='../mnist',   type=str,   metavar='XXX', help='Path to the model')
     parser.add_argument('--batch_size',     default=500,          type=int,   metavar='N',   help='Batch size of test set')
-    parser.add_argument('--num_epochs',     default=2000,         type=int,   metavar='N',   help='Epoch to run')
+    parser.add_argument('--num_epochs',     default=250,          type=int,   metavar='N',   help='Epoch to run')
     parser.add_argument('--num_points',     default=512,          type=int,   metavar='N',   help='Number of points in a image')
     parser.add_argument('--log_interval',   default=1000,         type=int,   metavar='N',   help='log_interval')
     parser.add_argument('--sigma',          default=0.05,         type=float, metavar='N',   help='sigma of sdt')
@@ -27,6 +27,7 @@ def load_args():
     parser.add_argument('--gpu',            default='0,1',        type=str,   metavar='XXX', help='GPU number')
     parser.add_argument('--density_radius', default=0.2,          type=float, metavar='XXX', help='Radius for density')
     parser.add_argument('--save_interval',  default=50,           type=int,   metavar='N',   help='save_interval')
+    parser.add_argument('--resume_training', default=0,           type=int,   metavar='N',   help='load used model at iteration')
     parser.add_argument('--resume_testing', default=0,            type=int,   metavar='N',   help='load used model at iteration')
     args = parser.parse_args()
     return args
@@ -150,7 +151,7 @@ def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
     return grid 
 
 
-def density_mapping(inputs, radius, s2_grid, sigma):
+def density_mapping(inputs, radius, s2_grid):
     """
     inputs : [B, N, 3]
     radius : radius to count neighbor for weights
@@ -168,33 +169,54 @@ def density_mapping(inputs, radius, s2_grid, sigma):
     # Resize inputs and grid
     s2_grid = s2_grid.view(-1, D) # -> [4b^2, 3]
     inputs = inputs.unsqueeze(2).repeat(1, 1, s2_grid.size()[0], 1) # -> [B, N, 4b^2, 3]
-    
+
     # Calculate Density
     numerator = inputs - s2_grid # -> [B, N, 4b^2, 3]
-    numerator = torch.matmul(numerator, sigma)
-    numerator = numerator * numerator
+
+    # Calculate Sigma
+    sigma = torch.matmul(numerator.transpose(2, 3), numerator) # -> [B, N, 3, 3]
+    sigma = sigma / (4 * np.power(b, 2))
+    
+    index = torch.tensor([[0, 1, 2],[0, 1, 2],[0, 1, 2]]).cuda()
+    index = index.unsqueeze(0).unsqueeze(0)
+    index = index.repeat(B, N, 1, 1)
+    sigma_diag = torch.gather(sigma, 2, index) # -> [B, N, 3, 3]
+    sigma_diag = sigma_diag[:, :, 0, :] # -> [B, N, 3]
+    sigma_diag = sigma_diag.unsqueeze(2) # -> [B, N, 1, 3]
+  
+    # For Testing With Sigma=0.05
+    # sigma_diag = torch.tensor([0.05, 0.05, 0.05]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
+   
+    # Adjust Sigma Values [0.2~0.7] -> [0.02~0.07]
+    sigma_diag = sigma_diag / 10 
+    # print(sigma_diag[0][0])
+    
+    sigma_inverse = 1 / sigma_diag
+    middle = torch.mul(numerator, sigma_inverse)
+    numerator = middle * numerator
+
     numerator = torch.sum(numerator, dim=-1) # -> [B, N, 4b^2]
     numerator = -0.5 * numerator 
     numerator = torch.exp(numerator) # -> [B, N, 4b^2]
+   
+    sigma_det = torch.prod(sigma_diag, dim=3) # -> [B, N, 1]
+
+    denominator = torch.sqrt(torch.pow(sigma_det, D)) # -> [B, N, 1]
+    denominator = denominator.cuda()
     
-    denominator = np.sqrt((2*3.14)**D * sigma**D)
-    
-    #density = numerator / denominator# -> [B, N, 4b^2] 
-    
+    density = numerator / denominator # -> [B, N, 4b^2] 
     
     # Sum Over Number of Points
-    density = numerator.sum(dim=1) # -> [B, 4b^2]
+    density = density.sum(dim=1) # -> [B, 4b^2]
     
     # Adjust Dimension
     density = density.view(B, 2*b, 2*b)  # -> [B, 2b, 2b]
-    
-    
     
     return density
     
     
     
-def data_translation(inputs, bandwidth, radius, sigma):  
+def data_translation(inputs, bandwidth, radius):  
     """
     :param inputs: [B, N, 3]
     :param radius: radius of area to calculate weights by number of neighbors
@@ -212,8 +234,7 @@ def data_translation(inputs, bandwidth, radius, sigma):
     inputs = density_mapping(
         inputs=inputs,
         radius=radius,
-        s2_grid=s2_grid,
-        sigma=sigma
+        s2_grid=s2_grid
     ).float()  # -> (B, 2b, 2b)
     
 

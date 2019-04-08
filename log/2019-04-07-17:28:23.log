@@ -1,0 +1,28 @@
+2019-04-07 17:28:23 INFO     Loading Data
+2019-04-07 17:28:24 INFO     Model Setting Up
+2019-04-07 17:28:30 INFO     train_dir : [../mnist/train]
+2019-04-07 17:28:30 INFO     test_dir : [../mnist/test]
+2019-04-07 17:28:30 INFO     save_dir : [./save]
+2019-04-07 17:28:30 INFO     num_epochs : [250]
+2019-04-07 17:28:30 INFO     batch_size : [500]
+2019-04-07 17:28:30 INFO     num_points : [512]
+2019-04-07 17:28:30 INFO     sigma : [0.05]
+2019-04-07 17:28:30 INFO     log_interval : [1000]
+2019-04-07 17:28:30 INFO     save_interval : [50]
+2019-04-07 17:28:30 INFO     baselr : [5e-05]
+2019-04-07 17:28:30 INFO     density_radius : [0.2]
+2019-04-07 17:28:30 INFO     feature_out1 : [8]
+2019-04-07 17:28:30 INFO     feature_out2 : [16]
+2019-04-07 17:28:30 INFO     feature_out3 : [32]
+2019-04-07 17:28:30 INFO     feature_out4 : [64]
+2019-04-07 17:28:30 INFO     feature_out5 : [128]
+2019-04-07 17:28:30 INFO     num_classes : [10]
+2019-04-07 17:28:30 INFO     bandwidth_0 : [10]
+2019-04-07 17:28:30 INFO     bandwidth_out1 : [10]
+2019-04-07 17:28:30 INFO     bandwidth_out2 : [8]
+2019-04-07 17:28:30 INFO     bandwidth_out3 : [6]
+2019-04-07 17:28:30 INFO     bandwidth_out4 : [4]
+2019-04-07 17:28:30 INFO     bandwidth_out5 : [2]
+2019-04-07 17:28:30 INFO     resume_training : [0]
+2019-04-07 17:28:30 INFO     Start Training
+2019-04-07 17:28:30 INFO     Saved model checkpoints into ./save/2019-04-07_17-28-30-model.ckpt...

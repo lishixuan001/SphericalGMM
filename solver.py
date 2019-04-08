@@ -20,8 +20,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
         
-def eval(model):
-    test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
+def eval(test_iterator, model):
     acc_all = []
     for i, (inputs, labels) in enumerate(test_iterator):
         if i <= 10:
@@ -32,7 +31,7 @@ def eval(model):
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
             
-            inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius'], params['sigma'])
+            inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius'])
             inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # -> [B, 1, 2b0, 2b0]
             
             outputs = model(inputs)
@@ -42,7 +41,7 @@ def eval(model):
             return np.mean(np.array(acc_all))
 
 
-def test(params, resume_iters, num_epochs=1000):
+def test(params, date_time, num_epochs=1000):
     logger = setup_logger("SphericalGMMNet")
     logger.info("Loading Data")
     
@@ -53,9 +52,8 @@ def test(params, resume_iters, num_epochs=1000):
     model = SphericalGMMNet(params).cuda()
     model = model.cuda()
     
-    logger.info('Loading the trained models from {date_time} : {iter_step} ...'.format(date_time=date_time, iter_step=iter_step))
-    date_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    model_path = os.path.join(params['save_dir'], data_time, '{iter_step}-model.ckpt'.format(iter_step=iter_step))
+    logger.info('Loading the trained models from {date_time} ...'.format(date_time=date_time))
+    model_path = os.path.join(params['save_dir'], '{date_time}-model.ckpt'.format(date_time=date_time))
     model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
     
     test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
@@ -90,6 +88,7 @@ def train(params):
 
     # Load Data
     train_iterator = utils.load_data_h5(params['train_dir'], batch_size=params['batch_size'])
+    test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
     
     # Model Setup
     logger.info("Model Setting Up")
@@ -100,17 +99,23 @@ def train(params):
     optim = torch.optim.Adam(model.parameters(), lr=params['baselr'])
     cls_criterion = torch.nn.CrossEntropyLoss().cuda()
     
+    # Resume If Asked 
+    date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    if params['resume_training']:
+        date_time = params['resume_training']
+        model_path = os.path.join(params['save_dir'], '{date_time}-model.ckpt'.format(date_time=date_time))
+        model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
+
     # Display Parameters  
     for name, value in params.items():
-        logger.info("{name} : [{value}]".format(name=name, value=value)))
+        logger.info("{name} : [{value}]".format(name=name, value=value))
     
     # Iterate by Epoch
     logger.info("Start Training")
     for epoch in range(params['num_epochs']): 
 
         if epoch % params['save_interval'] == 0:
-            date_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-            save_path = os.path.join(params['save_dir'], date_time, '{}-model.ckpt'.format(epoch))
+            save_path = os.path.join(params['save_dir'], '{date_time}-model.ckpt'.format(date_time=date_time))
             torch.save(model.state_dict(), save_path)
             logger.info('Saved model checkpoints into {}...'.format(save_path))
         
@@ -124,7 +129,10 @@ def train(params):
             if inputs.shape[-1] == 2:
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
-               
+
+            inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius']) # [B, N, 3] -> [B, 2b0, 2b0]
+            inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
+                  
             """ Run Model """
             outputs = model(inputs)
             
@@ -139,19 +147,12 @@ def train(params):
                                                                                          total_batch=len(train_iterator),
                                                                                          epoch=epoch,
                                                                                          loss=np.mean(running_loss)))
-            # Periodically Show Accuracy
-            if batch_idx % params['log_interval'] == 0:
-                acc = eval(model)
-                logger.info("Accuracy: [{}]\n".format(acc))
-                
         
-           
-
-        acc = eval(model)
-        logger.info("Epoch: [{epoch}/{total_epoch}] Loss: [{loss}] Accuracy: [{acc}]".format(epoch=epoch,
-                                                                                      total_epoch=params['num_epochs'],
-                                                                                      loss=np.mean(running_loss),
-                                                                                      acc=acc))
+        acc = eval(test_iterator, model)
+        logger.info("**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
+                                                                                                             total_epoch=params['num_epochs'],
+                                                                                                             loss=np.mean(running_loss),
+                                                                                                             acc=acc))
 
     logger.info('Finished Training')
 
@@ -190,7 +191,10 @@ if __name__ == '__main__':
         'bandwidth_out3': 6, 
         'bandwidth_out4': 4,
         'bandwidth_out5': 2,
+
+        'resume_training' : args.resume_training,
     }
+
     if args.resume_testing:
         test(params, args.resume_testing)
     else:
