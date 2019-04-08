@@ -15,7 +15,7 @@ from logger import setup_logger
 import lie_learn.spaces.S2 as S2
 from model import SphericalGMMNet
 from pdb import set_trace as st
-from matplotlib import pyplot
+from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
@@ -132,7 +132,14 @@ def train(params):
 
             inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius']) # [B, N, 3] -> [B, 2b0, 2b0]
             inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
-                  
+                 
+            """ Visualize Sphere """
+            for i in range(int(inputs.shape[0])):
+                data = inputs[0][0].cpu().numpy()
+                plt.imshow(data)
+                plt.savefig(os.path.join("imgs", str(labels[i].item()))) 
+            return
+
             """ Run Model """
             outputs = model(inputs)
             
