@@ -135,9 +135,9 @@ def train(params):
                  
             """ Visualize Sphere """
             for i in range(int(inputs.shape[0])):
-                data = inputs[0][0].cpu().numpy()
+                data = inputs[i][0].cpu().numpy()
                 plt.imshow(data)
-                plt.savefig(os.path.join("imgs", str(labels[i].item()))) 
+                plt.savefig(os.path.join("imgs", "cov" + str(labels[i].item()))) 
             return
 
             """ Run Model """

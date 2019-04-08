@@ -185,7 +185,7 @@ def density_mapping(inputs, radius, s2_grid):
     sigma_diag = sigma_diag.unsqueeze(2) # -> [B, N, 1, 3]
   
     # For Testing With Sigma=0.05
-    sigma_diag = torch.tensor([0.05, 0.05, 0.05]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
+    # sigma_diag = torch.tensor([0.05, 0.05, 0.05]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
    
     # Adjust Sigma Values [0.2~0.7] -> [0.02~0.07]
     sigma_diag = sigma_diag / 10 
