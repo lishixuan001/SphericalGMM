@@ -138,7 +138,7 @@ def train(params):
                 data = inputs[i][0].cpu().numpy()
                 print("Label: {}".format(labels[i].item()))
                 plt.imshow(data)
-                plt.savefig(os.path.join("imgs", "sum-full" + str(labels[i].item()))) 
+                plt.savefig(os.path.join("imgs", "origin-full" + str(labels[i].item()))) 
             return
           
             """ Run Model """
