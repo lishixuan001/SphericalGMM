@@ -7,6 +7,9 @@ import torch.nn.functional as func
 import lie_learn.spaces.S2 as S2
 import argparse
 import math
+from matplotlib import pyplot
+from mpl_toolkits.mplot3d import Axes3D
+
 
 def rotate_random():
     Q, _ = np.linalg.qr(np.random.rand(3,3)*0.2)
@@ -17,18 +20,18 @@ def rotate_random():
 
 def load_args():
     parser = argparse.ArgumentParser(description='Spherical GMM')
-    parser.add_argument('--data_path',      default='../mnist',   type=str,   metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size',     default=500,          type=int,   metavar='N',   help='Batch size of test set')
-    parser.add_argument('--num_epochs',     default=250,          type=int,   metavar='N',   help='Epoch to run')
-    parser.add_argument('--num_points',     default=512,          type=int,   metavar='N',   help='Number of points in a image')
-    parser.add_argument('--log_interval',   default=1000,         type=int,   metavar='N',   help='log_interval')
-    parser.add_argument('--sigma',          default=0.05,         type=float, metavar='N',   help='sigma of sdt')
-    parser.add_argument('--baselr',         default=5e-5 ,        type=float, metavar='N',   help='learning rate')
-    parser.add_argument('--gpu',            default='0,1',        type=str,   metavar='XXX', help='GPU number')
-    parser.add_argument('--density_radius', default=0.2,          type=float, metavar='XXX', help='Radius for density')
-    parser.add_argument('--save_interval',  default=50,           type=int,   metavar='N',   help='save_interval')
+    parser.add_argument('--data_path',       default='../mnist',   type=str,   metavar='XXX', help='Path to the model')
+    parser.add_argument('--batch_size',      default=500,          type=int,   metavar='N',   help='Batch size of test set')
+    parser.add_argument('--num_epochs',      default=500,          type=int,   metavar='N',   help='Epoch to run')
+    parser.add_argument('--num_points',      default=512,          type=int,   metavar='N',   help='Number of points in a image')
+    parser.add_argument('--log_interval',    default=1000,         type=int,   metavar='N',   help='log_interval')
+    parser.add_argument('--sigma',           default=0.05,         type=float, metavar='N',   help='sigma of sdt')
+    parser.add_argument('--baselr',          default=5e-5 ,        type=float, metavar='N',   help='learning rate')
+    parser.add_argument('--gpu',             default='0,1',        type=str,   metavar='XXX', help='GPU number')
+    parser.add_argument('--density_radius',  default=0.2,          type=float, metavar='XXX', help='Radius for density')
+    parser.add_argument('--save_interval',   default=50,           type=int,   metavar='N',   help='save_interval')
     parser.add_argument('--resume_training', default=0,           type=int,   metavar='N',   help='load used model at iteration')
-    parser.add_argument('--resume_testing', default=0,            type=int,   metavar='N',   help='load used model at iteration')
+    parser.add_argument('--resume_testing',  default=0,            type=int,   metavar='N',   help='load used model at iteration')
     args = parser.parse_args()
     return args
 
@@ -118,8 +121,6 @@ def down_sampling(X, v, out_pts):
     X = X.view(-1, X.shape[-1])
     return X[k2]
 
-from matplotlib import pyplot
-from mpl_toolkits.mplot3d import Axes3D
 
 def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
     """
@@ -168,7 +169,9 @@ def density_mapping(inputs, radius, s2_grid):
     b = int(s2_grid.size()[0] / 2)
 
     # Get Weights
-    dists = pairwise_distance(inputs)
+    dists = pairwise_distance(inputs) # -> [B, N, N]
+    weights = (dists <= radius).sum(dim=1).float() # -> [B, N]
+    weights = weights / weights.mean(dim=1, keepdim=True)    
     
     # Resize inputs and grid
     s2_grid = s2_grid.view(-1, D) # -> [4b^2, 3]
@@ -189,16 +192,17 @@ def density_mapping(inputs, radius, s2_grid):
     sigma_diag = sigma_diag.unsqueeze(2) # -> [B, N, 1, 3]
     
     # Normaliza Sigma (sum to 0.1) for each point
-    sigma_diag = torch.div(sigma_diag, torch.sum(sigma_diag, dim=3, keepdim=True))
+    # sigma_diag = torch.div(sigma_diag, torch.sum(sigma_diag, dim=3, keepdim=True))
    
     # Adjust Sigma Values [0.2~0.7] -> [0.02~0.07]
-    sigma_diag = sigma_diag / 10 
+    # sigma_diag = sigma_diag / 10 
 
     # Mean Sigma for each point
-    sigma_diag = torch.mean(sigma_diag, dim=3, keepdim=True).repeat(1, 1, 1, 3) # -> [B, N, 1, 3]
-    
+    # sigma_diag = torch.mean(sigma_diag, dim=3, keepdim=True).repeat(1, 1, 1, 3) # -> [B, N, 1, 3]
+    # print(sigma_diag[:5, :5, :, :]) 
+
     # For Testing With Sigma=0.05
-    # sigma_diag = torch.tensor([0.05, 0.05, 0.05]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
+    sigma_diag = torch.tensor([0.05, 0.05, 0.05]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
     
     sigma_inverse = 1 / sigma_diag
     middle = torch.mul(numerator, sigma_inverse)
@@ -215,6 +219,10 @@ def density_mapping(inputs, radius, s2_grid):
     
     density = numerator / denominator # -> [B, N, 4b^2] 
     
+    # Multiply Weights
+    weights = weights.unsqueeze(-1) # -> [B, N, 1]
+    density = density * weights # -> [B, N, 4b^2]
+
     # Sum Over Number of Points
     density = density.sum(dim=1) # -> [B, 4b^2]
     
