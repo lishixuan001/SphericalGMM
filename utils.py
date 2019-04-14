@@ -7,7 +7,7 @@ import torch.nn.functional as func
 import lie_learn.spaces.S2 as S2
 import argparse
 import math
-from matplotlib import pyplot
+from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
@@ -158,6 +158,47 @@ def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
     return grid 
 
 
+def visualize_row(inputs, labels, folder='row'):
+    """
+    inputs : [B, N, 3]
+    labels : [B]
+    """
+    for i in range(10):
+        label = str(labels[i].item())
+        image = inputs[i].cpu().numpy()
+        fig = plt.figure()
+        ax = Axes3D(fig)
+        ax.scatter(image[:, 0], image[:, 1], image[:, 2])
+        plt.savefig("./imgs/{}/{}.png".format(folder, label))
+    print("\n ===== Row Data Visualized [folder: {}] ===== \n".format(folder))
+ 
+   
+def visualize_sphere(inputs, labels, folder='sphere'):
+    """
+    inputs : [B, 1, 2b0, 2b0] 
+    """
+    for i in range(10):
+        label = str(labels[i].item())
+        data = inputs[i][0].cpu().numpy()
+        plt.imshow(data)
+        plt.savefig('./imgs/{}/{}.png'.format(folder, label)) 
+    print("\n ===== Sphere Data Visualized [folder: {}] ===== \n".format(folder))
+
+
+def data_mapping(inputs, radius):
+    """
+    inputs : [B, N, 3]
+    return : [B, N, 3]
+    """
+    B, N, D = inputs.size()
+    
+    # Radiactively Mapping -> let k = sqrt(x^2 + y^2 + z^2); ratio = radius / k; update x,y,z = (x,y,z) * ratio
+    k = torch.sqrt(torch.sum(torch.pow(inputs, 2), dim=2, keepdim=True)) # [B, N, 1])
+    ratio = radius / k
+    inputs = torch.mul(inputs, ratio)
+    return inputs
+
+
 def density_mapping(inputs, radius, s2_grid):
     """
     inputs : [B, N, 3]
@@ -187,7 +228,7 @@ def density_mapping(inputs, radius, s2_grid):
     index = torch.tensor([[0, 1, 2],[0, 1, 2],[0, 1, 2]]).cuda()
     index = index.unsqueeze(0).unsqueeze(0)
     index = index.repeat(B, N, 1, 1)
-    sigma_diag = torch.gather(sigma, 2, index) # -> [B, N, 3, 3]
+    sigma_diag = torch.gather(sigma, 2, index) # -> [B, N, 3, 3] -> [[diag1, diag2, diag3] * 3]
     sigma_diag = sigma_diag[:, :, 0, :] # -> [B, N, 3]
     sigma_diag = sigma_diag.unsqueeze(2) # -> [B, N, 1, 3]
     
@@ -241,8 +282,6 @@ def data_translation(inputs, bandwidth, radius):
     """
     
     inputs = inputs.cuda()
-    
-    
     
     s2_grid = get_grid(
         b=bandwidth

@@ -130,18 +130,21 @@ def train(params):
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
 
-            # inputs = utils.data_init_norm(inputs)
+            # Data Initialization
+
+            utils.visualize_row(inputs, labels, folder='row')
+
+            inputs = utils.data_mapping(inputs, params['density_radius']) # [B, N, 3]
+            
+            utils.visualize_row(inputs, labels, folder='map')
+
             inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius']) # [B, N, 3] -> [B, 2b0, 2b0]
             inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
        
-            """ Visualize Sphere """
-            # for i in range(10):
-            #     data = inputs[i][0].cpu().numpy()
-            #     print("Label: {}".format(labels[i].item()))
-            #     plt.imshow(data)
-            #     plt.savefig(os.path.join("imgs", "origin-full" + str(labels[i].item()))) 
-            # return
-          
+            utils.visualize_sphere(inputs, labels, folder='sphere')
+
+            return
+
             """ Run Model """
             outputs = model(inputs)
             
