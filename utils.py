@@ -158,7 +158,7 @@ def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
     return grid 
 
 
-def visualize_raw(inputs, labels, folder='raw', view_top=False):
+def visualize_raw(inputs, labels, folder='raw'):
     """
     inputs : [B, N, 3]
     labels : [B]
@@ -166,11 +166,17 @@ def visualize_raw(inputs, labels, folder='raw', view_top=False):
     for i in range(10):
         label = str(labels[i].item())
         image = inputs[i].cpu().numpy()
-        fig = plt.figure()
+
+        fig = plt.figure(figsize=plt.figaspect(0.5))
+        ax = fig.add_subplot(1, 2, 1)
         ax = Axes3D(fig)
         ax.scatter(image[:, 0], image[:, 1], image[:, 2])
-        if view_top:
-            ax.view_init(90, 0)
+
+        ax = fig.add_subplot(1, 2, 2)
+        ax = Axes3D(fig)
+        ax.scatter(image[:, 0], image[:, 1], image[:, 2])
+        ax.view_init(90, 0)
+
         plt.savefig("./imgs/{}/{}.png".format(folder, label))
         plt.close()
     print("\n ===== Row Data Visualized [folder: {}] ===== \n".format(folder))
