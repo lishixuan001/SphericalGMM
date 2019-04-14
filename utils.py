@@ -168,14 +168,12 @@ def visualize_raw(inputs, labels, folder='raw'):
         image = inputs[i].cpu().numpy()
 
         fig = plt.figure(figsize=plt.figaspect(0.5))
-        ax = fig.add_subplot(1, 2, 1)
-        ax = Axes3D(fig)
-        ax.scatter(image[:, 0], image[:, 1], image[:, 2])
-
-        ax = fig.add_subplot(1, 2, 2)
-        ax = Axes3D(fig)
-        ax.scatter(image[:, 0], image[:, 1], image[:, 2])
-        ax.view_init(90, 0)
+        ax = fig.add_subplot(1, 2, 1, projection='3d')
+        ax.scatter3D(image[:, 0], image[:, 1], image[:, 2])
+        
+        ax = fig.add_subplot(1, 2, 2, projection='3d')
+        ax.scatter3D(image[:, 0], image[:, 1], image[:, 2])
+        ax.view_init(elev=70, azim=30)
 
         plt.savefig("./imgs/{}/{}.png".format(folder, label))
         plt.close()
