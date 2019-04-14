@@ -113,7 +113,7 @@ def test(params, resume_iters):
                 outputs = model(inputs)
                 outputs = torch.argmax(outputs, dim=-1)
                 acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
-            print('Overall accuracy on testing set is '+str(np.mean(np.array(acc_all))))
+            # print('Overall accuracy on testing set is '+str(np.mean(np.array(acc_all))))
             logger.info('Accuracy: '+str(np.mean(np.array(acc_all))))
 
             
