@@ -30,8 +30,8 @@ def load_args():
     parser.add_argument('--gpu',             default='0,1',        type=str,   metavar='XXX', help='GPU number')
     parser.add_argument('--density_radius',  default=0.2,          type=float, metavar='XXX', help='Radius for density')
     parser.add_argument('--save_interval',   default=50,           type=int,   metavar='N',   help='save_interval')
-    parser.add_argument('--resume_training', default=0,           type=int,   metavar='N',   help='load used model at iteration')
-    parser.add_argument('--resume_testing',  default=0,            type=int,   metavar='N',   help='load used model at iteration')
+    parser.add_argument('--resume_training', default=0,            type=int,   metavar='N',   help='load used model at iteration')
+    parser.add_argument('--resume_testing',  default=None,         type=str,   metavar='N',   help='load used model at iteration')
     args = parser.parse_args()
     return args
 
