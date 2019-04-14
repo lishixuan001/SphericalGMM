@@ -194,7 +194,7 @@ def visualize_sphere(inputs, labels, folder='sphere'):
     print("\n ===== Sphere Data Visualized [folder: {}] ===== \n".format(folder))
 
 
-def data_mapping(inputs, radius):
+def data_mapping(inputs, radius=1):
     """
     inputs : [B, N, 3]
     return : [B, N, 3]
@@ -270,8 +270,8 @@ def density_mapping(inputs, radius, s2_grid):
     density = numerator / denominator # -> [B, N, 4b^2] 
     
     # Multiply Weights
-    weights = weights.unsqueeze(-1) # -> [B, N, 1]
-    density = density * weights # -> [B, N, 4b^2]
+    # weights = weights.unsqueeze(-1) # -> [B, N, 1]
+    # density = density * weights # -> [B, N, 4b^2]
 
     # Sum Over Number of Points
     density = density.sum(dim=1) # -> [B, 4b^2]
