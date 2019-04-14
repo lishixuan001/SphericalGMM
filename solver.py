@@ -31,6 +31,7 @@ def eval(test_iterator, model):
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
             
+            inputs = utils.data_mapping(inputs) # [B, N, 3]
             inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius'])
             inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # -> [B, 1, 2b0, 2b0]
             
