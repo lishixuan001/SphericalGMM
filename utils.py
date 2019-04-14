@@ -173,7 +173,7 @@ def visualize_raw(inputs, labels, folder='raw'):
         
         ax = fig.add_subplot(1, 2, 2, projection='3d')
         ax.scatter3D(image[:, 0], image[:, 1], image[:, 2])
-        ax.view_init(elev=70, azim=30)
+        ax.view_init(elev=70) # azim=-60
 
         plt.savefig("./imgs/{}/{}.png".format(folder, label))
         plt.close()
