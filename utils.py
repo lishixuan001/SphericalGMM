@@ -158,7 +158,7 @@ def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
     return grid 
 
 
-def visualize_row(inputs, labels, folder='row'):
+def visualize_raw(inputs, labels, folder='raw', view_top=False):
     """
     inputs : [B, N, 3]
     labels : [B]
@@ -169,7 +169,10 @@ def visualize_row(inputs, labels, folder='row'):
         fig = plt.figure()
         ax = Axes3D(fig)
         ax.scatter(image[:, 0], image[:, 1], image[:, 2])
+        if view_top:
+            ax.view_init(90, 0)
         plt.savefig("./imgs/{}/{}.png".format(folder, label))
+        plt.close()
     print("\n ===== Row Data Visualized [folder: {}] ===== \n".format(folder))
  
    
@@ -180,8 +183,10 @@ def visualize_sphere(inputs, labels, folder='sphere'):
     for i in range(10):
         label = str(labels[i].item())
         data = inputs[i][0].cpu().numpy()
-        plt.imshow(data)
+        ax, fig = plt.subplots()
+        fig.imshow(data)
         plt.savefig('./imgs/{}/{}.png'.format(folder, label)) 
+        plt.close()
     print("\n ===== Sphere Data Visualized [folder: {}] ===== \n".format(folder))
 
 
