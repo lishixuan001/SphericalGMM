@@ -122,38 +122,36 @@ def down_sampling(X, v, out_pts):
     return X[k2]
 
 
-def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
+def get_grid(b, radius, grid_type="Driscoll-Healy"):
     """
     :param b: the number of grids on the sphere
-    :param radius: the radius of each sphere
+    :param radius: [B, 1] the radius of each sphere for each image
     :param grid_type: "Driscoll-Healy"
     :return: tensor [2b, 2b, 3]
     """
+    B = radius.size()[0]
+    radius = radius.unsqueeze(-1).double() # [B, 1, 1]
+
     # theta in shape (2b, 2b), range [0, pi]; phi range [0, 2 * pi]
     theta, phi = S2.meshgrid(b=b, grid_type=grid_type)
-    theta = torch.from_numpy(theta)  # .cuda()
-    phi = torch.from_numpy(phi)  # .cuda()
+    theta = torch.from_numpy(theta).cuda()
+    phi = torch.from_numpy(phi).cuda()
 
     # x will be reshaped to have one dimension of 1, then can broadcast
     # look this link for more information: https://pytorch.org/docs/stable/notes/broadcasting.html
     x_ = radius * torch.sin(theta) * torch.cos(phi)
-    x = x_.reshape((1, 4 * b * b))  # tensor -> [1, 4 * b * b]
+    x = x_.reshape((B, 1, 4 * b * b))  # tensor -> [B, 1, 4 * b * b]
 
     y_ = radius * torch.sin(theta) * torch.sin(phi)
-    y = y_.reshape((1, 4 * b * b))
+    y = y_.reshape((B, 1, 4 * b * b))
 
     z_ = radius * torch.cos(theta)
-    z = z_.reshape((1, 4 * b * b))
+    z = z_.reshape((B, 1, 4 * b * b))
 
-    grid = torch.cat((x, y, z), dim=0)  # -> [3, 4b^2]
-    grid = grid.transpose(0, 1) # -> [4b^2, 3]
+    grid = torch.cat((x, y, z), dim=1)  # -> [B, 3, 4b^2]
+    grid = grid.transpose(1, 2) # -> [B, 4b^2, 3]
     
-    # fig = pyplot.figure()
-    # ax = Axes3D(fig)
-    # ax.scatter(grid[:, 0], grid[:, 1], grid[:, 2])
-    # pyplot.savefig('books_read.png')
-    
-    grid = grid.view(2*b, 2*b, 3 ) # -> [2b, 2b, 3]
+    grid = grid.view(B, 2*b, 2*b, 3) # -> [B, 2b, 2b, 3]
     
     return grid 
 
@@ -194,8 +192,20 @@ def visualize_sphere(inputs, labels, folder='sphere'):
     print("\n ===== Sphere Data Visualized [folder: {}] ===== \n".format(folder))
 
 
+def get_radius(inputs):
+    """
+    Based on the data points, calculate the radius of the minimum sphere radius that can cover all points inside
+    inputs : [B, N, 3]
+    return : [B, 1]
+    """
+    # Radiactively Mapping -> let k = sqrt(x^2 + y^2 + z^2); find max k among N; ratio = radius / k; update x,y,z = (x,y,z) * ratio; 
+    max_data_radius = torch.argmax(torch.sqrt(torch.sum(torch.pow(inputs, 2), dim=2)), dim=1, keepdim=True) # [B, 1]
+    return max_data_radius
+
+
 def data_mapping(inputs, radius=1):
     """
+    Propotional Mapping by Ratio
     inputs : [B, N, 3]
     return : [B, N, 3]
     """
@@ -212,7 +222,7 @@ def density_mapping(inputs, radius, s2_grid, static_sigma=0.05):
     """
     inputs : [B, N, 3]
     radius : radius to count neighbor for weights
-    s2_grid : [2b, 2b, 3]
+    s2_grid : [B, 2b, 2b, 3]
     """ 
     
     B, N, D = inputs.size()
@@ -245,14 +255,14 @@ def density_mapping(inputs, radius, s2_grid, static_sigma=0.05):
     # sigma_diag = torch.div(sigma_diag, torch.sum(sigma_diag, dim=3, keepdim=True))
    
     # Adjust Sigma Values [0.2~0.7] -> [0.02~0.07]
-    sigma_diag = sigma_diag / 10 
+    # sigma_diag = sigma_diag / 10 
 
     # Mean Sigma for each point
-    sigma_diag = torch.mean(sigma_diag, dim=3, keepdim=True).repeat(1, 1, 1, 3) # -> [B, N, 1, 3]
+    # sigma_diag = torch.mean(sigma_diag, dim=3, keepdim=True).repeat(1, 1, 1, 3) # -> [B, N, 1, 3]
     # print(sigma_diag[:5, :5, :, :]) 
 
     # For Testing With Static Sigma
-    # sigma_diag = torch.tensor([static_sigma, static_sigma, static_sigma]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
+    sigma_diag = torch.tensor([static_sigma, static_sigma, static_sigma]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
     
     sigma_inverse = 1 / sigma_diag
     middle = torch.mul(numerator, sigma_inverse)
@@ -283,7 +293,7 @@ def density_mapping(inputs, radius, s2_grid, static_sigma=0.05):
     
     
     
-def data_translation(inputs, bandwidth, radius):  
+def data_translation(inputs, bandwidth, density_radius):  
     """
     :param inputs: [B, N, 3]
     :param radius: radius of area to calculate weights by number of neighbors
@@ -292,13 +302,16 @@ def data_translation(inputs, bandwidth, radius):
     
     inputs = inputs.cuda()
     
+    grid_radius = get_radius(inputs) # [B, 1]
+
     s2_grid = get_grid(
-        b=bandwidth
+        b=bandwidth,
+        radius=grid_radius
     ).float().cuda()  # -> [2b, 2b, 3]
 
     inputs = density_mapping(
         inputs=inputs,
-        radius=radius,
+        radius=density_radius,
         s2_grid=s2_grid
     ).float()  # -> (B, 2b, 2b)
     

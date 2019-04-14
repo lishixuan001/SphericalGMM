@@ -131,13 +131,6 @@ def train(params):
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
 
             # Data Initialization
-
-            # utils.visualize_raw(inputs, labels, folder='raw')
-
-            inputs = utils.data_mapping(inputs) # [B, N, 3]
-            
-            # utils.visualize_raw(inputs, labels, folder='map')
-
             inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius']) # [B, N, 3] -> [B, 2b0, 2b0]
             inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
        
