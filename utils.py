@@ -202,7 +202,7 @@ def data_mapping(inputs, radius=1):
     B, N, D = inputs.size()
     
     # Radiactively Mapping -> let k = sqrt(x^2 + y^2 + z^2); ratio = radius / k; update x,y,z = (x,y,z) * ratio
-    k = torch.sqrt(torch.sum(torch.pow(inputs, 2), dim=2, keepdim=True)) # [B, N, 1])
+    k = torch.argmax(torch.sqrt(torch.sum(torch.pow(inputs, 2), dim=2, keepdim=True)), dim=1, keepdim=True).float() # [B, 1, 1])
     ratio = radius / k
     inputs = torch.mul(inputs, ratio)
     return inputs

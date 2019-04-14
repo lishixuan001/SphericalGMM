@@ -132,18 +132,18 @@ def train(params):
 
             # Data Initialization
 
-            # utils.visualize_raw(inputs, labels, folder='raw')
+            utils.visualize_raw(inputs, labels, folder='raw')
 
             inputs = utils.data_mapping(inputs) # [B, N, 3]
             
-            # utils.visualize_raw(inputs, labels, folder='map')
+            utils.visualize_raw(inputs, labels, folder='map')
 
             inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius']) # [B, N, 3] -> [B, 2b0, 2b0]
             inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
        
-            # utils.visualize_sphere(inputs, labels, folder='sphere')
+            utils.visualize_sphere(inputs, labels, folder='sphere')
 
-            # return
+            return
 
             """ Run Model """
             outputs = model(inputs)
