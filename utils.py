@@ -208,7 +208,7 @@ def data_mapping(inputs, radius=1):
     return inputs
 
 
-def density_mapping(inputs, radius, s2_grid, static_sigma=0.03):
+def density_mapping(inputs, radius, s2_grid, static_sigma=0.05):
     """
     inputs : [B, N, 3]
     radius : radius to count neighbor for weights
@@ -245,14 +245,14 @@ def density_mapping(inputs, radius, s2_grid, static_sigma=0.03):
     # sigma_diag = torch.div(sigma_diag, torch.sum(sigma_diag, dim=3, keepdim=True))
    
     # Adjust Sigma Values [0.2~0.7] -> [0.02~0.07]
-    # sigma_diag = sigma_diag / 10 
+    sigma_diag = sigma_diag / 10 
 
     # Mean Sigma for each point
-    # sigma_diag = torch.mean(sigma_diag, dim=3, keepdim=True).repeat(1, 1, 1, 3) # -> [B, N, 1, 3]
+    sigma_diag = torch.mean(sigma_diag, dim=3, keepdim=True).repeat(1, 1, 1, 3) # -> [B, N, 1, 3]
     # print(sigma_diag[:5, :5, :, :]) 
 
-    # For Testing With Sigma=0.05
-    sigma_diag = torch.tensor([static_sigma, static_sigma, static_sigma]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
+    # For Testing With Static Sigma
+    # sigma_diag = torch.tensor([static_sigma, static_sigma, static_sigma]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda() 
     
     sigma_inverse = 1 / sigma_diag
     middle = torch.mul(numerator, sigma_inverse)
@@ -270,8 +270,8 @@ def density_mapping(inputs, radius, s2_grid, static_sigma=0.03):
     density = numerator / denominator # -> [B, N, 4b^2] 
     
     # Multiply Weights
-    weights = weights.unsqueeze(-1) # -> [B, N, 1]
-    density = density * weights # -> [B, N, 4b^2]
+    # weights = weights.unsqueeze(-1) # -> [B, N, 1]
+    # density = density * weights # -> [B, N, 4b^2]
 
     # Sum Over Number of Points
     density = density.sum(dim=1) # -> [B, 4b^2]
