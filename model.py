@@ -39,6 +39,9 @@ class SphericalGMMNet(nn.Module):
 
         grid_s2 = s2_near_identity_grid()
         grid_so3 = so3_near_identity_grid()
+        
+        self.linear = nn.Linear(3, 3) #3*3 Transformation matrix 
+        
 
         # s2 conv [Learn Pattern]
         self.conv1 = S2Convolution(
@@ -119,6 +122,10 @@ class SphericalGMMNet(nn.Module):
         """
         :param x: tensor (B, 1, 2b0, 2b0)
         """
+        B, N, D = x.shape
+        x = self.linear(x)
+        x = utils.data_translation(x, self.bandwidth_0, self.density_radius) # [B, N, 3] -> [B, 2b0, 2b0]
+        x = x.view(self.batch_size, 1, 2 * self.bandwidth_0, 2 * self.bandwidth_0)  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
         
         # S2 Conv 
         x = self.conv1(x)  # -> [B, f1, 2b1, 2b1, 2b1]
@@ -145,6 +152,7 @@ class SphericalGMMNet(nn.Module):
         
         x = so3_integrate(x)  # -> (B, f4)
         x = self.out_layer(x)
+        
         
         return x
     

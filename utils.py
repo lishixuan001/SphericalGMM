@@ -21,13 +21,13 @@ def rotate_random():
 def load_args():
     parser = argparse.ArgumentParser(description='Spherical GMM')
     parser.add_argument('--data_path',       default='../mnist',   type=str,   metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size',      default=500,          type=int,   metavar='N',   help='Batch size of test set')
+    parser.add_argument('--batch_size',      default=300,          type=int,   metavar='N',   help='Batch size of test set')
     parser.add_argument('--num_epochs',      default=500,          type=int,   metavar='N',   help='Epoch to run')
     parser.add_argument('--num_points',      default=512,          type=int,   metavar='N',   help='Number of points in a image')
     parser.add_argument('--log_interval',    default=1000,         type=int,   metavar='N',   help='log_interval')
     parser.add_argument('--sigma',           default=0.05,         type=float, metavar='N',   help='sigma of sdt')
     parser.add_argument('--baselr',          default=5e-5 ,        type=float, metavar='N',   help='learning rate')
-    parser.add_argument('--gpu',             default='0,1',        type=str,   metavar='XXX', help='GPU number')
+    parser.add_argument('--gpu',             default='3, 4',        type=str,   metavar='XXX', help='GPU number')
     parser.add_argument('--density_radius',  default=0.2,          type=float, metavar='XXX', help='Radius for density')
     parser.add_argument('--save_interval',   default=50,           type=int,   metavar='N',   help='save_interval')
     parser.add_argument('--resume_training', default=0,            type=int,   metavar='N',   help='load used model at iteration')
@@ -266,8 +266,8 @@ def density_mapping(inputs, radius, s2_grid, static_sigma=0.05):
     density = numerator / denominator # -> [B, N, 4b^2] 
     
     # Multiply Weights
-    # weights = weights.unsqueeze(-1) # -> [B, N, 1]
-    # density = density * weights # -> [B, N, 4b^2]
+    weights = weights.unsqueeze(-1) # -> [B, N, 1]
+    density = density * weights # -> [B, N, 4b^2]
 
     # Sum Over Number of Points
     density = density.sum(dim=1) # -> [B, 4b^2]

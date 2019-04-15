@@ -32,9 +32,6 @@ def eval(test_iterator, model):
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
             
             inputs = utils.data_mapping(inputs) # [B, N, 3]
-            inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius'])
-            inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # -> [B, 1, 2b0, 2b0]
-            
             outputs = model(inputs)
             outputs = torch.argmax(outputs, dim=-1)
             acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
@@ -113,6 +110,7 @@ def train(params):
         logger.info("{name} : [{value}]".format(name=name, value=value))
     
     # Iterate by Epoch
+    p_transformation_learner = torch.nn.Linear(3, 3)
     logger.info("Start Training")
     for epoch in range(params['num_epochs']): 
 
@@ -131,17 +129,19 @@ def train(params):
             if inputs.shape[-1] == 2:
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
-
+            
+            
             # Data Initialization
 
             # utils.visualize_raw(inputs, labels, folder='raw')
 
             inputs = utils.data_mapping(inputs) # [B, N, 3]
             
+          
+            
             # utils.visualize_raw(inputs, labels, folder='map')
 
-            inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius']) # [B, N, 3] -> [B, 2b0, 2b0]
-            inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
+            
        
             # utils.visualize_sphere(inputs, labels, folder='sphere')
 
@@ -163,6 +163,7 @@ def train(params):
                                                                                          loss=np.mean(running_loss)))
         
         acc = eval(test_iterator, model)
+        print(model.linear.weight)
         logger.info("**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
                                                                                                              total_epoch=params['num_epochs'],
                                                                                                              loss=np.mean(running_loss),
