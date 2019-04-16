@@ -160,7 +160,7 @@ def visualize_raw(inputs, labels, folder='raw'):
     """
     for i in range(10):
         label = str(labels[i].item())
-        image = inputs[i].cpu().numpy()
+        image = inputs[i].detach().cpu().numpy()
 
         fig = plt.figure(figsize=plt.figaspect(0.5))
         ax = fig.add_subplot(1, 2, 1, projection='3d')
@@ -181,7 +181,7 @@ def visualize_sphere(inputs, labels, folder='sphere'):
     """
     for i in range(10):
         label = str(labels[i].item())
-        data = inputs[i][0].cpu().numpy()
+        data = inputs[i][0].detach().cpu().numpy()
         ax, fig = plt.subplots()
         fig.imshow(data)
         plt.savefig('./imgs/{}/{}.png'.format(folder, label)) 

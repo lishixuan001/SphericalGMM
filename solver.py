@@ -113,7 +113,7 @@ def train(params):
     p_transformation_learner = torch.nn.Linear(3, 3)
     logger.info("Start Training")
     for epoch in range(params['num_epochs']): 
-
+        
         if epoch % params['save_interval'] == 0:
             save_path = os.path.join(params['save_dir'], '{date_time}-model.ckpt'.format(date_time=date_time))
             torch.save(model.state_dict(), save_path)
@@ -129,26 +129,10 @@ def train(params):
             if inputs.shape[-1] == 2:
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
-            
-            
-            # Data Initialization
-
-            # utils.visualize_raw(inputs, labels, folder='raw')
-
-            inputs = utils.data_mapping(inputs) # [B, N, 3]
-            
           
-            
-            # utils.visualize_raw(inputs, labels, folder='map')
-
-            
-       
-            # utils.visualize_sphere(inputs, labels, folder='sphere')
-
-            # return
 
             """ Run Model """
-            outputs = model(inputs)
+            outputs = model(inputs, labels, batch_idx)
             
             """ Back Propagation """
             loss = cls_criterion(outputs, labels.squeeze())
@@ -163,7 +147,7 @@ def train(params):
                                                                                          loss=np.mean(running_loss)))
         
         acc = eval(test_iterator, model)
-        print(model.linear.weight)
+        logger.info('\n'+str(model.weights))
         logger.info("**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
                                                                                                              total_epoch=params['num_epochs'],
                                                                                                              loss=np.mean(running_loss),

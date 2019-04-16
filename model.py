@@ -36,13 +36,16 @@ class SphericalGMMNet(nn.Module):
         self.bandwidth_out3 = self.params['bandwidth_out3']
         self.bandwidth_out4 = self.params['bandwidth_out4']
         self.bandwidth_out5 = self.params['bandwidth_out5']
+        
+        self.maxpool3d = nn.AvgPool3d(self.bandwidth_out5)
 
         grid_s2 = s2_near_identity_grid()
         grid_so3 = so3_near_identity_grid()
         
-        self.linear = nn.Linear(3, 3) #3*3 Transformation matrix 
+        #self.weights = nn.Parameter(torch.randn((3, 3)))
+        self.weights = nn.Linear(256, 3)
         
-
+        
         # s2 conv [Learn Pattern]
         self.conv1 = S2Convolution(
             nfeature_in=1, # [hard-code in_feature=1]
@@ -118,14 +121,29 @@ class SphericalGMMNet(nn.Module):
         
 
         
-    def forward(self, x):
+    def forward(self, x, labels=None, i=0):
         """
         :param x: tensor (B, 1, 2b0, 2b0)
         """
         B, N, D = x.shape
-        x = self.linear(x)
+#         if i == 199:
+#             utils.visualize_raw(x, labels, folder='raw')
+        
+        # Apply P Matrix  
+#         weight_matrix = torch.tanh(self.weights)
+#         x = torch.matmul(x, weight_matrix)
+        #x = self.weights(torch.transpose(x, 2, 1)).permute(0, 2, 1)
+        
+        # Data Mappin
+        x = utils.data_mapping(x) # [B, N, 3]
+#         if i == 199:
+#             utils.visualize_raw(x, labels, folder='map')
+        
+        # Data Translation
         x = utils.data_translation(x, self.bandwidth_0, self.density_radius) # [B, N, 3] -> [B, 2b0, 2b0]
         x = x.view(self.batch_size, 1, 2 * self.bandwidth_0, 2 * self.bandwidth_0)  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
+#         if i == 199:
+#             utils.visualize_sphere(x, labels, folder='sphere')
         
         # S2 Conv 
         x = self.conv1(x)  # -> [B, f1, 2b1, 2b1, 2b1]
@@ -146,11 +164,12 @@ class SphericalGMMNet(nn.Module):
         x = F.relu(x)
         x = self.bn4(x)
         
-        x = self.conv5(x)  # -> [B, f1, 2b1, 2b1, 2b1]
-        x = F.relu(x)
+        x = self.conv5(x)  # -> [B, f5, 2b5, 2b5, 2b5]
+        #x = F.relu(x)
+        x = self.maxpool3d(x)
         x = self.bn5(x)
         
-        x = so3_integrate(x)  # -> (B, f4)
+        x = so3_integrate(x)  # -> (B, f5)
         x = self.out_layer(x)
         
         
