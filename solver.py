@@ -32,6 +32,12 @@ def eval(test_iterator, model):
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
             
             inputs = utils.data_mapping(inputs) # [B, N, 3]
+
+            print('[eval] inputs.shape = {}'.format(inputs.shape))
+
+            inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius']) # [B, N, 3] -> [B, 2b0, 2b0]
+            inputs = inputs.view(B, 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
+            
             outputs = model(inputs)
             outputs = torch.argmax(outputs, dim=-1)
             acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
@@ -68,7 +74,7 @@ def test(params, date_time, num_epochs=1000):
 
                 inputs = utils.data_mapping(inputs) # [B, N, 3]
                 inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius']) # [B, N, 3] -> [B, 2B0, 2B0]
-                inputs = inputs.view(params['batch_size'], 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # -> [B, 1, 2b0, 2b0]
+                inputs = inputs.view(B, 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # -> [B, 1, 2b0, 2b0]
                 
                 outputs = model(inputs)
                 outputs = torch.argmax(outputs, dim=-1)
@@ -129,10 +135,21 @@ def train(params):
             if inputs.shape[-1] == 2:
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1) # [B, N, 3]
-          
+                  
+            # Data Mapping
+            inputs = utils.data_mapping(inputs) # [B, N, 3]
+
+            print('[train] inputs.shape : {}'.format(inputs.shape))
+
+            # Data Translation
+            inputs = utils.data_translation(inputs, params['bandwidth_0'], params['density_radius']) # [B, N, 3] -> [B, 2b0, 2b0]
+            inputs = inputs.view(B, 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
+            
+            # Visualization [Sphere]
+            # utils.visualize_sphere(inputs, labels, folder='sphere')
 
             """ Run Model """
-            outputs = model(inputs, labels, batch_idx)
+            outputs = model(inputs)
             
             """ Back Propagation """
             loss = cls_criterion(outputs, labels.squeeze())
@@ -159,7 +176,7 @@ if __name__ == '__main__':
     
     args = utils.load_args()
     
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+    # os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
     params = {
         'train_dir' : os.path.join(args.data_path, "train"),

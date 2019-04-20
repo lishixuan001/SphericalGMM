@@ -21,13 +21,13 @@ def rotate_random():
 def load_args():
     parser = argparse.ArgumentParser(description='Spherical GMM')
     parser.add_argument('--data_path',       default='../mnist',   type=str,   metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size',      default=300,          type=int,   metavar='N',   help='Batch size of test set')
+    parser.add_argument('--batch_size',      default=512,          type=int,   metavar='N',   help='Batch size of test set')
     parser.add_argument('--num_epochs',      default=500,          type=int,   metavar='N',   help='Epoch to run')
     parser.add_argument('--num_points',      default=512,          type=int,   metavar='N',   help='Number of points in a image')
     parser.add_argument('--log_interval',    default=1000,         type=int,   metavar='N',   help='log_interval')
     parser.add_argument('--sigma',           default=0.05,         type=float, metavar='N',   help='sigma of sdt')
     parser.add_argument('--baselr',          default=5e-5 ,        type=float, metavar='N',   help='learning rate')
-    parser.add_argument('--gpu',             default='3, 4',        type=str,   metavar='XXX', help='GPU number')
+    parser.add_argument('--gpu',             default='3,4',        type=str,   metavar='XXX', help='GPU number')
     parser.add_argument('--density_radius',  default=0.2,          type=float, metavar='XXX', help='Radius for density')
     parser.add_argument('--save_interval',   default=50,           type=int,   metavar='N',   help='save_interval')
     parser.add_argument('--resume_training', default=0,            type=int,   metavar='N',   help='load used model at iteration')
@@ -89,23 +89,6 @@ def direct_load_h5(data_dir, batch_size, shuffle=False, num_workers=4):
     return train_loader_dataset
 
 
-def pairwise_distance(point_cloud):
-    """Compute pairwise distance of a point cloud.
-    Args:
-      point_cloud: tensor (batch_size, num_points, num_dims, num_channels)
-    Returns:
-      pairwise distance: (batch_size, num_points, num_points)
-    """
-    B, N, D = point_cloud.size()
-    
-    x_norm = (point_cloud ** 2).sum(-1).view(B, -1, 1) # [B, N, 1]
-    y_norm = x_norm.view(B, 1, -1) # [B, 1, N]
-
-    dist = x_norm + y_norm - 2.0 * torch.matmul(point_cloud, point_cloud.transpose(1, 2)) # [B, C, N, N]
-    
-    return dist
-
-
 def down_sampling(X, v, out_pts):
     B, N, _ = X.shape
     
@@ -121,6 +104,26 @@ def down_sampling(X, v, out_pts):
     X = X.view(-1, X.shape[-1])
     return X[k2]
 
+
+def pairwise_distance(point_cloud):
+    """Compute pairwise distance of a point cloud.
+    Args:
+      point_cloud: tensor (batch_size, num_points, num_dims)
+    Returns:
+      pairwise distance: (batch_size, num_points, num_points)
+    """
+    og_batch_size = point_cloud.shape[0] #point_cloud.get_shape().as_list()[0]
+    point_cloud = torch.squeeze(point_cloud)
+    if og_batch_size == 1:
+        point_cloud = point_cloud.unsqueeze(0) #torch.expand_dims(point_cloud, 0)
+    
+    point_cloud_transpose = point_cloud.permute(0, 2, 1)
+    #torch.transpose(point_cloud, perm=[0, 2, 1])
+    point_cloud_inner = torch.matmul(point_cloud, point_cloud_transpose)
+    point_cloud_inner = -2*point_cloud_inner
+    point_cloud_square = torch.sum( point_cloud**2, dim=-1, keepdim=True)
+    point_cloud_square_tranpose = point_cloud_square.permute(0, 2, 1) #torch.transpose(point_cloud_square, perm=[0, 2, 1])
+    return point_cloud_square + point_cloud_inner + point_cloud_square_tranpose
 
 def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
     """
@@ -147,7 +150,7 @@ def get_grid(b, radius=1, grid_type="Driscoll-Healy"):
 
     grid = torch.cat((x, y, z), dim=0)  # -> [3, 4b^2]
     grid = grid.transpose(0, 1) # -> [4b^2, 3]
-    
+
     grid = grid.view(2*b, 2*b, 3 ) # -> [2b, 2b, 3]
     
     return grid 
@@ -228,7 +231,7 @@ def density_mapping(inputs, radius, s2_grid, static_sigma=0.05):
 
     # Calculate Sigma
     sigma = torch.matmul(numerator.transpose(2, 3), numerator) # -> [B, N, 3, 3]
-    sigma = sigma / (4 * np.power(b, 2))
+    sigma = sigma / (4 * (b ** 2))
     
     index = torch.tensor([[0, 1, 2],[0, 1, 2],[0, 1, 2]]).cuda()
     index = index.unsqueeze(0).unsqueeze(0)
@@ -289,7 +292,7 @@ def data_translation(inputs, bandwidth, radius):
     inputs = inputs.cuda()
     
     s2_grid = get_grid(
-        b=bandwidth
+        b=bandwidth,
     ).float().cuda()  # -> [2b, 2b, 3]
 
     inputs = density_mapping(
