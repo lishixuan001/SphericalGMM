@@ -2,9 +2,17 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="5e5dc00f-c7c8-4aa3-8803-438ce8880a5f" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/R_User_Library.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/imgs/tensor(0, device='cuda:0').png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/imgs/tensor(1, device='cuda:0').png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/imgs/tensor(2, device='cuda:0').png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/imgs/tensor(3, device='cuda:0').png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/imgs/tensor(4, device='cuda:0').png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/imgs/tensor(5, device='cuda:0').png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/imgs/tensor(6, device='cuda:0').png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/imgs/tensor(7, device='cuda:0').png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/imgs/tensor(8, device='cuda:0').png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/imgs/tensor(9, device='cuda:0').png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/solver.py" beforeDir="false" afterPath="$PROJECT_DIR$/solver.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
     </list>
@@ -24,70 +32,136 @@
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
-          <entry key="py" value="3" />
+          <entry key="py" value="11" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
-          <entry key="Python" value="3" />
+          <entry key="Python" value="11" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="py" value="1516" />
+          <entry key="py" value="2983" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="Python" value="1516" />
+          <entry key="Python" value="2983" />
         </counts>
       </usages-collector>
     </session>
   </component>
   <component name="FileEditorManager">
-    <leaf>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/solver.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="525">
-              <caret line="209" column="47" lean-forward="true" selection-start-line="209" selection-start-column="47" selection-end-line="209" selection-end-column="47" />
-              <folding>
-                <element signature="e#0#9#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/model.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="443">
-              <caret line="148" column="16" lean-forward="true" selection-start-line="148" selection-start-column="16" selection-end-line="148" selection-end-column="16" />
-              <folding>
-                <element signature="e#0#31#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/utils.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="216">
-              <caret line="326" column="4" selection-start-line="326" selection-start-column="4" selection-end-line="326" selection-end-column="4" />
-              <folding>
-                <element signature="e#0#18#0" expanded="true" />
-                <marker date="1559282618088" expanded="true" signature="12448:12462" ph="..." />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-    </leaf>
+    <splitter split-orientation="horizontal" split-proportion="0.4765708">
+      <split-first>
+        <leaf>
+          <file pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/solver.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="458">
+                  <caret line="129" column="45" selection-start-line="129" selection-start-column="45" selection-end-line="129" selection-end-column="45" />
+                  <folding>
+                    <element signature="e#0#9#0" expanded="true" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/model.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="320">
+                  <caret line="120" column="18" selection-start-line="120" selection-start-column="18" selection-end-line="120" selection-end-column="18" />
+                  <folding>
+                    <element signature="e#0#31#0" expanded="true" />
+                    <marker date="1559337589993" expanded="true" signature="3854:3863" ph="..." />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/s2cnn/so3_grid.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="92">
+                  <caret line="5" column="4" selection-start-line="5" selection-start-column="4" selection-end-line="5" selection-end-column="4" />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/s2cnn/s2_grid.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="322">
+                  <caret line="14" column="35" selection-start-line="14" selection-start-column="35" selection-end-line="14" selection-end-column="35" />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/utils.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="4009">
+                  <caret line="343" column="54" lean-forward="true" selection-start-line="343" selection-start-column="54" selection-end-line="343" selection-end-column="54" />
+                  <folding>
+                    <element signature="e#0#18#0" expanded="true" />
+                    <marker date="1559339732101" expanded="true" signature="13324:13344" ph="..." />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+        </leaf>
+      </split-first>
+      <split-second>
+        <leaf>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/solver.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="435">
+                  <caret line="153" selection-start-line="153" selection-end-line="153" />
+                  <folding>
+                    <element signature="e#0#9#0" expanded="true" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/model.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="-17">
+                  <caret line="125" column="18" selection-start-line="125" selection-start-column="18" selection-end-line="125" selection-end-column="18" />
+                  <folding>
+                    <element signature="e#0#31#0" expanded="true" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/utils.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="371">
+                  <caret line="199" selection-start-line="199" selection-end-line="199" />
+                  <folding>
+                    <element signature="e#0#18#0" expanded="true" />
+                    <marker date="1559339732101" expanded="true" signature="7739:8134" ph="..." />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+        </leaf>
+      </split-second>
+    </splitter>
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
       <find>data_map</find>
+      <find>visualize</find>
+      <find>grids</find>
       <find>sigma</find>
     </findStrings>
   </component>
@@ -97,8 +171,10 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/solver.py" />
+        <option value="$USER_HOME$/Downloads/3d-mnist/plot3D.py" />
+        <option value="$PROJECT_DIR$/model.py" />
         <option value="$PROJECT_DIR$/utils.py" />
+        <option value="$PROJECT_DIR$/solver.py" />
       </list>
     </option>
   </component>
@@ -125,6 +201,11 @@
             <path>
               <item name="SphericalGMM" type="b2602c69:ProjectViewProjectNode" />
               <item name="SphericalGMM" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="SphericalGMM" type="b2602c69:ProjectViewProjectNode" />
+              <item name="SphericalGMM" type="462c0819:PsiDirectoryNode" />
+              <item name="s2cnn" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -178,7 +259,7 @@
     <editor active="true" />
     <layout>
       <window_info id="Favorites" side_tool="true" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.24973376" />
+      <window_info content_ui="combo" id="Project" order="0" weight="0.122470714" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Docker" show_stripe_button="false" />
       <window_info anchor="bottom" id="Database Changes" show_stripe_button="false" />
@@ -209,33 +290,55 @@
     <option name="myLimit" value="2678400000" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/model.py">
+    <entry file="file://$PROJECT_DIR$/s2cnn/s2_grid.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="443">
-          <caret line="148" column="16" lean-forward="true" selection-start-line="148" selection-start-column="16" selection-end-line="148" selection-end-column="16" />
-          <folding>
-            <element signature="e#0#31#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="322">
+          <caret line="14" column="35" selection-start-line="14" selection-start-column="35" selection-end-line="14" selection-end-column="35" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/solver.py">
+    <entry file="file://$PROJECT_DIR$/s2cnn/so3_grid.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="525">
-          <caret line="209" column="47" lean-forward="true" selection-start-line="209" selection-start-column="47" selection-end-line="209" selection-end-column="47" />
+        <state relative-caret-position="92">
+          <caret line="5" column="4" selection-start-line="5" selection-start-column="4" selection-end-line="5" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/Downloads/3d-mnist/plot3D.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="6248">
+          <caret line="353" column="12" selection-start-line="353" selection-start-column="12" selection-end-line="353" selection-end-column="12" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/model.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="320">
+          <caret line="120" column="18" selection-start-line="120" selection-start-column="18" selection-end-line="120" selection-end-column="18" />
           <folding>
-            <element signature="e#0#9#0" expanded="true" />
+            <element signature="e#0#31#0" expanded="true" />
+            <marker date="1559337589993" expanded="true" signature="3854:3863" ph="..." />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/utils.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="216">
-          <caret line="326" column="4" selection-start-line="326" selection-start-column="4" selection-end-line="326" selection-end-column="4" />
+        <state relative-caret-position="4009">
+          <caret line="343" column="54" lean-forward="true" selection-start-line="343" selection-start-column="54" selection-end-line="343" selection-end-column="54" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />
-            <marker date="1559282618088" expanded="true" signature="12448:12462" ph="..." />
+            <marker date="1559339732101" expanded="true" signature="13324:13344" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/solver.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="458">
+          <caret line="129" column="45" selection-start-line="129" selection-start-column="45" selection-end-line="129" selection-end-column="45" />
+          <folding>
+            <element signature="e#0#9#0" expanded="true" />
           </folding>
         </state>
       </provider>

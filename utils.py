@@ -185,6 +185,19 @@ def get_grids(b, num_grids, base_radius=1, grid_type="Driscoll-Healy"):
     return grids
 
 
+def visualize_grids(s2_grids, folder='grid', colors=['red', 'blue', 'orange']):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    for i, s2_grid in enumerate(s2_grids):
+        grid = s2_grid.view(-1, 3)
+        x = grid[:, 0].squeeze()
+        y = grid[:, 1].squeeze()
+        z = grid[:, 2].squeeze()
+        ax.scatter(x, y, z, marker='o', c=colors[int(i % len(colors))])
+    plt.savefig("./imgs/{}/s2_grids.png".format(folder))
+    plt.close()
+
+
 def visualize_raw(inputs, labels, folder='raw'):
     """
     inputs : [B, N, 3]
@@ -207,17 +220,18 @@ def visualize_raw(inputs, labels, folder='raw'):
     print("\n ===== Row Data Visualized [folder: {}] ===== \n".format(folder))
 
 
-def visualize_sphere(inputs, labels, folder='sphere'):
+def visualize_sphere(data, labels, folder='sphere'):
     """
-    inputs : [B, 1, 2b0, 2b0]
+    data :  list( Tensor([B, 2b, 2b]) * num_grids )
     """
     for i in range(10):
         label = str(labels[i].item())
-        data = inputs[i][0].detach().cpu().numpy()
-        ax, fig = plt.subplots()
-        fig.imshow(data)
-        plt.savefig('./imgs/{}/{}.png'.format(folder, label))
-        plt.close()
+        for j, inputs in enumerate(data):
+            inputs = inputs[i][0].detach().cpu().numpy()
+            ax, fig = plt.subplots()
+            fig.imshow(inputs)
+            plt.savefig('./imgs/{}/{}-{}.png'.format(folder, label, j))
+            plt.close()
     print("\n ===== Sphere Data Visualized [folder: {}] ===== \n".format(folder))
 
 
@@ -238,7 +252,7 @@ def data_mapping(inputs, base_radius=1):
     return inputs
 
 
-def density_mapping(b, inputs, density_radius, s2_grid, static_sigma=0.05, use_static_sigma=True, use_weights=False):
+def density_mapping(b, inputs, index, density_radius, s2_grid, static_sigma=0.05, use_static_sigma=True, use_weights=False):
     """
     inputs : [B, N, 3]
     radius : radius to count neighbor for weights
@@ -257,16 +271,14 @@ def density_mapping(b, inputs, density_radius, s2_grid, static_sigma=0.05, use_s
     s2_grid = s2_grid.view(-1, D)  # -> [4b^2, 3]
     inputs = inputs.unsqueeze(2).repeat(1, 1, s2_grid.size()[0], 1)  # -> [B, N, 4b^2, 3]
 
-    # Calculate Density
+    # Calculate Density & Apply Cropping
     numerator = inputs - s2_grid  # -> [B, N, 4b^2, 3]
-
+    numerator = torch.mul(numerator, index)
 
     # If Use Static Sigma
     if use_static_sigma:
         # [Use Static Sigma] For Testing With Static Sigma
-        sigma_diag = torch.tensor([static_sigma, static_sigma, static_sigma]).unsqueeze(0).unsqueeze(0).unsqueeze(
-            0).repeat(
-            B, N, 1, 1).cuda()
+        sigma_diag = torch.tensor([static_sigma, static_sigma, static_sigma]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda()
     else:
         # Calculate Sigma [Convariance]
         sigma = torch.matmul(numerator.transpose(2, 3), numerator)  # -> [B, N, 3, 3]
@@ -322,41 +334,48 @@ def data_cropping(data, inner_radius, radius):
     :param data: [B, N, 3]
     :param inner_radius: (float) bottom line for the croption
     :param radius: upper line for the croption
-    :return: [B, N', 3] where N' is the number of satisfying data points
+    :return: [B, N, 3] where only valid points have value and others all zeros
     """
     distances = torch.sqrt(torch.sum(torch.pow(data, 2), dim=2, keepdim=True)) # [B, N, 1]
-        
 
-    return
+    index_lower = distances >= inner_radius
+    index_upper = distances <= radius
+    index = index_lower * index_upper
+    index = index.float().unsqueeze(-1) # [B, N, 1, 1]
+
+    return index
 
 
-def data_translation(inputs, s2_grids, bandwidth, density_radius):
+def data_translation(inputs, s2_grids, params):
     """
     :param inputs: [B, N, 3]
     :param s2_grids: []
-    :param bandwidth: bandwidth0 for the grid
-    :param density_radius: radius of area to calculate weights by number of neighbors
-    :return: [B, 2b, 2b]
+    :param params: parameters
+    :return: list( Tensor([B, 2b, 2b]) * num_grids )
     """
-
-    data = inputs.cuda()
+    B, N, D = inputs.size()
+    inputs = inputs.cuda()
 
     mappings = list()
     inner_radius = 0.0
-    for radius, s2_grid in s2_grids:
 
-        inputs = data_cropping(data, inner_radius, radius)
+    for radius, s2_grid in s2_grids:
+        index = data_cropping(inputs, inner_radius, radius) # [B, N, 3] with invalid points left zeros
         mapping = density_mapping(
-            b=bandwidth,
+            b=params['bandwidth_0'],
             inputs=inputs,
-            density_radius=density_radius,
-            s2_grid=s2_grid
+            index=index,
+            density_radius=params['density_radius'],
+            s2_grid=s2_grid,
+            static_sigma=params['static_sigma'],
+            use_static_sigma=params['use_static_sigma'],
+            use_weights=params['use_weights']
         ).float()  # -> (B, 2b, 2b)
+        mapping = mapping.view(B, 1, 2 * params['bandwidth_0'],
+                                 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
         mappings.append(mapping)
         inner_radius = radius
 
-    # TODO : concatnate the mappings into inputs
-
-    return inputs
+    return mappings
 
 # END

@@ -30,11 +30,12 @@ def eval(test_iterator, model):
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1)  # [B, N, 3]
 
-            inputs = utils.data_mapping(inputs)  # [B, N, 3]
-            inputs = utils.data_translation(inputs, params['bandwidth_0'],
-                                            params['density_radius'])  # [B, N, 3] -> [B, 2b0, 2b0]
-            inputs = inputs.view(B, 1, 2 * params['bandwidth_0'],
-                                 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
+            # Data Mapping
+            inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
+
+            # Data Translation
+            inputs = utils.data_translation(inputs, s2_grids, params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
+
 
             outputs = model(inputs)
             outputs = torch.argmax(outputs, dim=-1)
@@ -58,6 +59,10 @@ def test(params, date_time, num_epochs=1000):
     model_path = os.path.join(params['save_dir'], '{date_time}-model.ckpt'.format(date_time=date_time))
     model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
 
+    # Generate the grids
+    # [(radius, tensor([2b, 2b, 3])) * 3]
+    s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
+
     test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
     for epoch in range(num_epochs):
         acc_all = []
@@ -70,10 +75,12 @@ def test(params, date_time, num_epochs=1000):
                     zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                     inputs = torch.cat((inputs, zero_padding), -1)  # [B, N, 3]
 
-                inputs = utils.data_mapping(inputs)  # [B, N, 3]
-                inputs = utils.data_translation(inputs, params['bandwidth_0'],
-                                                params['density_radius'])  # [B, N, 3] -> [B, 2B0, 2B0]
-                inputs = inputs.view(B, 1, 2 * params['bandwidth_0'], 2 * params['bandwidth_0'])  # -> [B, 1, 2b0, 2b0]
+                # Data Mapping
+                inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
+
+                # Data Translation
+                inputs = utils.data_translation(inputs, s2_grids,
+                                                params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
 
                 outputs = model(inputs)
                 outputs = torch.argmax(outputs, dim=-1)
@@ -115,6 +122,9 @@ def train(params):
     # [(radius, tensor([2b, 2b, 3])) * 3]
     s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
 
+    # TODO [Visualize Grids]
+    utils.visualize_grids(s2_grids)
+
     # Iterate by Epoch
     logger.info("Start Training")
     for epoch in range(params['num_epochs']):
@@ -140,17 +150,10 @@ def train(params):
             inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
 
             # Data Translation
-            inputs = utils.data_translation(inputs, s2_grids,
-                                            params['bandwidth_0'],
-                                            params['density_radius'],
-                                            params['static_sigma'],
-                                            params['use_static_sigma'],
-                                            params['use_weights'])  # [B, N, 3] -> [B, 2b0, 2b0]
-            inputs = inputs.view(B, 1, 2 * params['bandwidth_0'],
-                                 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
+            inputs = utils.data_translation(inputs, s2_grids, params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
 
-            # Visualization [Sphere]
-            # utils.visualize_sphere(inputs, labels, folder='sphere')
+            # TODO [Visualization [Sphere]]
+            utils.visualize_sphere(inputs, labels, folder='sphere')
 
             """ Run Model """
             outputs = model(inputs)
