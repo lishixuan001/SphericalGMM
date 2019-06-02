@@ -145,6 +145,10 @@ def train(params):
             if inputs.shape[-1] == 2:
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1)  # [B, N, 3]
+                
+            # TODO [Visualization [Raw]]
+            origins = inputs.clone()
+            utils.visualize_raw(inputs, labels)
 
             # Data Mapping
             inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
@@ -153,7 +157,7 @@ def train(params):
             inputs = utils.data_translation(inputs, s2_grids, params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
 
             # TODO [Visualization [Sphere]]
-            utils.visualize_sphere(inputs, labels, folder='sphere')
+            utils.visualize_sphere(origins, inputs, labels, s2_grids, folder='sphere')
 
             """ Run Model """
             outputs = model(inputs)
@@ -194,9 +198,10 @@ if __name__ == '__main__':
 
     params = {
         'train_dir': os.path.join(args.data_path, "train"),
-        'test_dir': os.path.join(args.data_path, "test"),
-        'save_dir': os.path.join('./', "save"),
-
+        'test_dir' : os.path.join(args.data_path, "test"),
+        'save_dir' : os.path.join('./', "save"),
+        
+        'gpu'       : args.gpu,
         'num_epochs': args.num_epochs,
         'batch_size': args.batch_size,
         'num_points': args.num_points,
@@ -219,7 +224,8 @@ if __name__ == '__main__':
         'feature_out4': 64,
         'feature_out5': 128,
 
-        'num_classes': 10,
+        'num_classes': args.num_classes,
+        'num_so3_layers': args.num_so3_layers,
 
         'bandwidth_0': 10,
         'bandwidth_out1': 10,
@@ -231,6 +237,7 @@ if __name__ == '__main__':
         'resume_training': args.resume_training,
     }
 
+    os.environ['CUDA_VISIBLE_DEVICES'] = params['gpu']
     if args.resume_testing:
         test(params, args.resume_testing)
     else:

@@ -22,13 +22,17 @@ def load_args():
     parser = argparse.ArgumentParser(description='Spherical GMM')
 
     # Model
-    parser.add_argument('--data_path', default='../mnist', type=str, metavar='XXX', help='Path to the model')
+    parser.add_argument('--data_path', default='../dataset/mnist', type=str, metavar='XXX', help='Path to the model')
     parser.add_argument('--batch_size', default=512, type=int, metavar='N', help='Batch size of test set')
     parser.add_argument('--num_epochs', default=300, type=int, metavar='N', help='Epoch to run')
     parser.add_argument('--num_points', default=512, type=int, metavar='N', help='Number of points in a image')
     parser.add_argument('--log_interval', default=1000, type=int, metavar='N', help='log_interval')
     parser.add_argument('--baselr', default=5e-5, type=float, metavar='N', help='learning rate')
-    parser.add_argument('--gpu', default='3,4', type=str, metavar='XXX', help='GPU number')
+    parser.add_argument('--gpu', default='1,2', type=str, metavar='XXX', help='GPU number')
+    
+    # Modal Structure
+    parser.add_argument('--num_classes', default='10', type=int, metavar='XXX', help='number of classes for classification') 
+    parser.add_argument('--num_so3_layers', default='3', type=int, metavar='XXX', help='number of SO3 layers')
 
     # Save Model
     parser.add_argument('--save_interval', default=50, type=int, metavar='N', help='save_interval')
@@ -152,7 +156,7 @@ def get_grids(b, num_grids, base_radius=1, grid_type="Driscoll-Healy"):
     """
 
     grids = list()
-    radiuses = [round(i, 2) for i in list(np.linspace(0, base_radius, num_grids + 1))]
+    radiuses = [round(i, 2) for i in list(np.linspace(0, base_radius, num_grids + 1))[1:]]
 
     # Each grid has differet radius, the radiuses are distributed uniformly based on number
     for radius in radiuses:
@@ -186,13 +190,13 @@ def get_grids(b, num_grids, base_radius=1, grid_type="Driscoll-Healy"):
 
 
 def visualize_grids(s2_grids, folder='grid', colors=['red', 'blue', 'orange']):
-    fig = plt.figure()
+    fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection='3d')
-    for i, s2_grid in enumerate(s2_grids):
+    for i, (_, s2_grid) in enumerate(s2_grids):
         grid = s2_grid.view(-1, 3)
-        x = grid[:, 0].squeeze()
-        y = grid[:, 1].squeeze()
-        z = grid[:, 2].squeeze()
+        x = grid[:, 0].squeeze().cpu().numpy()
+        y = grid[:, 1].squeeze().cpu().numpy()
+        z = grid[:, 2].squeeze().cpu().numpy()
         ax.scatter(x, y, z, marker='o', c=colors[int(i % len(colors))])
     plt.savefig("./imgs/{}/s2_grids.png".format(folder))
     plt.close()
@@ -207,34 +211,54 @@ def visualize_raw(inputs, labels, folder='raw'):
         label = str(labels[i].item())
         image = inputs[i].detach().cpu().numpy()
 
-        fig = plt.figure(figsize=plt.figaspect(0.5))
-        ax = fig.add_subplot(1, 2, 1, projection='3d')
+        fig = plt.figure(figsize=(10, 10))
+        ax = fig.add_subplot(111, projection='3d')
         ax.scatter3D(image[:, 0], image[:, 1], image[:, 2])
 
-        ax = fig.add_subplot(1, 2, 2, projection='3d')
-        ax.scatter3D(image[:, 0], image[:, 1], image[:, 2])
-        ax.view_init(elev=70)  # azim=-60
+        # ax = fig.add_subplot(1, 2, 2, projection='3d')
+        # ax.scatter3D(image[:, 0], image[:, 1], image[:, 2])
+        # ax.view_init(elev=70)  # azim=-60
 
         plt.savefig("./imgs/{}/{}.png".format(folder, label))
         plt.close()
-    print("\n ===== Row Data Visualized [folder: {}] ===== \n".format(folder))
 
 
-def visualize_sphere(data, labels, folder='sphere'):
+def visualize_sphere(origins, data, labels, s2_grids, folder='sphere'):
     """
     data :  list( Tensor([B, 2b, 2b]) * num_grids )
     """
     for i in range(10):
         label = str(labels[i].item())
+        fig, axs = plt.subplots(1, 3)
         for j, inputs in enumerate(data):
             inputs = inputs[i][0].detach().cpu().numpy()
-            ax, fig = plt.subplots()
-            fig.imshow(inputs)
-            plt.savefig('./imgs/{}/{}-{}.png'.format(folder, label, j))
-            plt.close()
-    print("\n ===== Sphere Data Visualized [folder: {}] ===== \n".format(folder))
+            # ax, fig = plt.subplots(figsize=(10, 10))
+            axs[j].set_title('Layer {}'.format(j))
+            axs[j].imshow(inputs)
+        plt.savefig('./imgs/{}/{}-map.png'.format(folder, label))
+        plt.close()
+            
+    for i in range(10):
+        label = str(labels[i].item())
+        fig = plt.figure(figsize=(10, 10))
+        ax = fig.add_subplot(111, projection='3d')
+        image = origins[i].detach().cpu().numpy()
+        ax.scatter3D(image[:, 0], image[:, 1], image[:, 2], marker="^", c='red')
+        for j, inputs in enumerate(data):
+            _, grid = s2_grids[j]
+            grid = grid.view(-1, 3)
+            x = grid[:, 0].squeeze().cpu().numpy()
+            y = grid[:, 1].squeeze().cpu().numpy()
+            z = grid[:, 2].squeeze().cpu().numpy()
+            inputs = inputs[i]
+            _, B, B = inputs.shape
+            inputs = inputs.view(B*B, 1)
+            inputs = inputs[:, 0].detach().cpu().numpy()
+            ax.scatter(x, y, z, c=inputs)
+        plt.savefig('./imgs/{}/{}-grid.png'.format(folder, label))
+        plt.close()
 
-
+        
 def data_mapping(inputs, base_radius=1):
     """
     Change the data cloud locations (scaling) to make all data points fall inside the ourier sphere (shell)
