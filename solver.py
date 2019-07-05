@@ -19,32 +19,40 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def eval(test_iterator, model, params):
+def eval(test_iterator, model, params, logger, num_epochs=20):
+    
+    logger.info("================================ Eval ================================\n")
     
     s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
 
-    acc_all = []
-    for i, (inputs, labels) in enumerate(test_iterator):
-        if i <= 10:
-            inputs = Variable(inputs).cuda()
-            B, N, D = inputs.size()
+    acc_overall = list()
+    test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
+    for epoch in range(num_epochs):
+        acc_all = []
+        with torch.no_grad():
+            for _, (inputs, labels) in enumerate(test_iterator):
+                inputs = Variable(inputs).cuda()
+                B, N, D = inputs.size()
 
-            if inputs.shape[-1] == 2:
-                zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
-                inputs = torch.cat((inputs, zero_padding), -1)  # [B, N, 3]
+                if inputs.shape[-1] == 2:
+                    zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
+                    inputs = torch.cat((inputs, zero_padding), -1)  # [B, N, 3]
 
-            # Data Mapping
-            inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
+                # Data Mapping
+                inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
 
-            # Data Translation
-            inputs = utils.data_translation(inputs, s2_grids, params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
+                # Data Translation
+                inputs = utils.data_translation(inputs, s2_grids,
+                                                params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
 
-
-            outputs = model(inputs)
-            outputs = torch.argmax(outputs, dim=-1)
-            acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
-        else:
-            return np.mean(np.array(acc_all))
+                outputs = model(inputs)
+                outputs = torch.argmax(outputs, dim=-1)
+                acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
+            acc_overall.append(np.mean(np.array(acc_all)))
+            logger.info('[epoch {}] Accuracy: [{}]'.format(epoch, str(np.mean(np.array(acc_all)))))
+            
+    logger.info("======================================================================\n")
+    return np.max(acc_overall)
 
 
 def test(params, date_time, num_epochs=1000):
@@ -199,7 +207,7 @@ def train(params):
                                                                                                 loss=np.mean(
                                                                                                     running_loss)))
 
-        acc = eval(test_iterator, model, params)
+        acc = eval(test_iterator, model, params, logger)
         logger.info(
             "**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
                                                                                                           total_epoch=
