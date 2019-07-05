@@ -227,7 +227,7 @@ class SphericalGMMNet(nn.Module):
             num_features=self.feature_out5
         ) 
         
-        self.weights = nn.Parameter(torch.Tensor(self.feature_out5, self.num_grids))
+        self.weights = nn.Parameter(nn.init.uniform_(torch.Tensor(self.feature_out5, self.num_grids)))
 
         self.out_layer = nn.Sequential(
             nn.Linear(self.feature_out5, int(self.feature_out5 / 2)),
@@ -249,15 +249,17 @@ class SphericalGMMNet(nn.Module):
         """
 
         # S2 Conv 
-
+        
         x = [self.conv0_0(x[0]), # -> [B, f1, 2b1, 2b1, 2b1] * num_grids
              self.conv0_1(x[1]), 
              self.conv0_2(x[2])]
-        x = [F.relu(x[i]) for i in range(len(x))]
+        x = [F.relu(x[0]), 
+             F.relu(x[1]), 
+             F.relu(x[2])]
         x = [self.bn0_0(x[0]), 
              self.bn0_1(x[1]), 
              self.bn0_2(x[2])]
-
+        
         # SO3 Conv
         x = [self.conv1_0(x[0]), # -> [B, f2, 2b2, 2b2, 2b2] * num_grids
              self.conv1_1(x[1]), 
@@ -292,14 +294,15 @@ class SphericalGMMNet(nn.Module):
              self.bn4_2(x[2])]
 
         x = [so3_integrate(x[i]) for i in range(len(x))]  # -> (B, f5) * num_grids
-       
+        
         x = [x[i].unsqueeze(0) for i in range(len(x))]
         x = torch.cat(tuple(x), dim=0)  # -> (num_grids, B, f5)
 
         N, B, C = x.shape
+
         x = x.permute(1, 2, 0)  # -> (B, f5, num_grids)
-        x = torch.mul(x, self.weights)  # -> (B, f5, num_grids)
-        x = torch.sum(x, dim=-1, keepdim=False )  # -> (B, f5)
+        x = torch.mul(x, torch.sigmoid(self.weights))  # -> (B, f5, num_grids)
+        x = torch.sum(x, dim=-1, keepdim=False)  # -> (B, f5)
 
         x = self.out_layer(x)
         

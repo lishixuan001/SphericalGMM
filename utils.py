@@ -29,13 +29,14 @@ def load_args():
     parser.add_argument('--log_interval', default=1000, type=int, metavar='N', help='log_interval')
     parser.add_argument('--baselr', default=5e-5, type=float, metavar='N', help='learning rate')
     parser.add_argument('--gpu', default='1,2', type=str, metavar='XXX', help='GPU number')
+    parser.add_argument('--visualize', default=0, type=int, metavar='XXX', help='if do visualization')
     
     # Modal Structure
     parser.add_argument('--num_classes', default='10', type=int, metavar='XXX', help='number of classes for classification') 
     parser.add_argument('--num_so3_layers', default='3', type=int, metavar='XXX', help='number of SO3 layers')
 
     # Save Model
-    parser.add_argument('--save_interval', default=50, type=int, metavar='N', help='save_interval')
+    parser.add_argument('--save_interval', default=20, type=int, metavar='N', help='save_interval')
     parser.add_argument('--resume_training', default=0, type=int, metavar='N', help='load used model at iteration')
     parser.add_argument('--resume_testing', default=None, type=str, metavar='N', help='load used model at iteration')
 
@@ -46,8 +47,10 @@ def load_args():
     # GMM
     parser.add_argument('--density_radius', default=0.2, type=float, metavar='XXX', help='Radius for density')
     parser.add_argument('--static_sigma', default=0.05, type=float, metavar='N', help='static sigma to use')
-    parser.add_argument('--use_static_sigma', default=True, type=bool, metavar='N', help='if use static sigma')
-    parser.add_argument('--use_weights', default=False, type=bool, metavar='N', help='if use weights for each point for GMM')
+    parser.add_argument('--use_static_sigma', default=0, type=int, metavar='N', help='if use static sigma')
+    parser.add_argument('--use_weights', default=0, type=int, metavar='N', help='if use weights for each point for GMM')
+    parser.add_argument('--sigma_layer_diff', default=1, type=int, metavar='N', help='if expected sigma different over shells')
+    
     args = parser.parse_args()
     return args
 
@@ -223,10 +226,15 @@ def visualize_raw(inputs, labels, folder='raw'):
         plt.close()
 
 
-def visualize_sphere(origins, data, labels, s2_grids, folder='sphere'):
+def visualize_sphere(origins, data, labels, s2_grids, params, folder='sphere'):
     """
     data :  list( Tensor([B, 2b, 2b]) * num_grids )
     """
+    if params['use_static_sigma']:
+        subfolder = "static_sigma_{}".format(params['static_sigma'])
+    else:
+        subfolder = "conv_sigma"
+    
     for i in range(10):
         label = str(labels[i].item())
         fig, axs = plt.subplots(1, 3)
@@ -235,12 +243,12 @@ def visualize_sphere(origins, data, labels, s2_grids, folder='sphere'):
             # ax, fig = plt.subplots(figsize=(10, 10))
             axs[j].set_title('Layer {}'.format(j))
             axs[j].imshow(inputs)
-        plt.savefig('./imgs/{}/{}-map.png'.format(folder, label))
+        plt.savefig('./imgs/{}/{}/{}-map.png'.format(folder, subfolder, label))
         plt.close()
             
     for i in range(10):
         label = str(labels[i].item())
-        fig = plt.figure(figsize=(10, 10))
+        fig = plt.figure(figsize=(15, 15))
         ax = fig.add_subplot(111, projection='3d')
         image = origins[i].detach().cpu().numpy()
         ax.scatter3D(image[:, 0], image[:, 1], image[:, 2], marker="^", c='red')
@@ -255,7 +263,7 @@ def visualize_sphere(origins, data, labels, s2_grids, folder='sphere'):
             inputs = inputs.view(B*B, 1)
             inputs = inputs[:, 0].detach().cpu().numpy()
             ax.scatter(x, y, z, c=inputs)
-        plt.savefig('./imgs/{}/{}-grid.png'.format(folder, label))
+        plt.savefig('./imgs/{}/{}/{}-grid.png'.format(folder, subfolder, label))
         plt.close()
 
         
@@ -276,9 +284,10 @@ def data_mapping(inputs, base_radius=1):
     return inputs
 
 
-def density_mapping(b, inputs, index, density_radius, s2_grid, static_sigma=0.05, use_static_sigma=True, use_weights=False):
+def density_mapping(b, inputs, data_index, density_radius, sphere_radius, s2_grid, sigma_layer_diff=False, static_sigma=0.05, use_static_sigma=True, use_weights=False):
     """
     inputs : [B, N, 3]
+    index : index of valid corresponding inputs
     radius : radius to count neighbor for weights
     s2_grid : [2b, 2b, 3]
     """
@@ -297,14 +306,13 @@ def density_mapping(b, inputs, index, density_radius, s2_grid, static_sigma=0.05
 
     # Calculate Density & Apply Cropping
     numerator = inputs - s2_grid  # -> [B, N, 4b^2, 3]
-    numerator = torch.mul(numerator, index)
 
     # If Use Static Sigma
     if use_static_sigma:
         # [Use Static Sigma] For Testing With Static Sigma
         sigma_diag = torch.tensor([static_sigma, static_sigma, static_sigma]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda()
     else:
-        # Calculate Sigma [Convariance]
+        # Calculate Sigma [Covariance]
         sigma = torch.matmul(numerator.transpose(2, 3), numerator)  # -> [B, N, 3, 3]
         sigma = sigma / (4 * (b ** 2))
 
@@ -317,12 +325,19 @@ def density_mapping(b, inputs, index, density_radius, s2_grid, static_sigma=0.05
 
         # Adjust Sigma Values [0.2~0.7] -> [0.02~0.07]
         # Mean Sigma for each point
-        sigma_diag = sigma_diag / 10
+        
+        sigma_diag = sigma_diag / 10  
+        
+        # If request E[sigma] vary over diff layers of shell
+        if sigma_layer_diff:
+            sigma_diag = sigma_diag * sphere_radius
+            
         sigma_diag = torch.mean(sigma_diag, dim=3, keepdim=True).repeat(1, 1, 1, 3)  # -> [B, N, 1, 3]
 
 
-
+        
     sigma_inverse = 1 / sigma_diag
+    
     middle = torch.mul(numerator, sigma_inverse)
     numerator = middle * numerator
 
@@ -336,6 +351,9 @@ def density_mapping(b, inputs, index, density_radius, s2_grid, static_sigma=0.05
     denominator = denominator.cuda()
 
     density = numerator / denominator  # -> [B, N, 4b^2]
+    
+    # Filter out only valid data points
+    density = torch.mul(density, data_index)
 
     # If use weightes
     if use_weights:
@@ -365,7 +383,7 @@ def data_cropping(data, inner_radius, radius):
     index_lower = distances >= inner_radius
     index_upper = distances <= radius
     index = index_lower * index_upper
-    index = index.float().unsqueeze(-1) # [B, N, 1, 1]
+    index = index.float() # [B, N, 1]
 
     return index
 
@@ -384,13 +402,15 @@ def data_translation(inputs, s2_grids, params):
     inner_radius = 0.0
 
     for radius, s2_grid in s2_grids:
-        index = data_cropping(inputs, inner_radius, radius) # [B, N, 3] with invalid points left zeros
+        index = data_cropping(inputs, inner_radius, radius) # [B, N, 1] with invalid points left zeros
         mapping = density_mapping(
             b=params['bandwidth_0'],
             inputs=inputs,
-            index=index,
+            data_index=index,
             density_radius=params['density_radius'],
+            sphere_radius=radius,
             s2_grid=s2_grid,
+            sigma_layer_diff=params['sigma_layer_diff'],
             static_sigma=params['static_sigma'],
             use_static_sigma=params['use_static_sigma'],
             use_weights=params['use_weights']

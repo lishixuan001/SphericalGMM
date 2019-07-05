@@ -19,7 +19,10 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def eval(test_iterator, model):
+def eval(test_iterator, model, params):
+    
+    s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
+
     acc_all = []
     for i, (inputs, labels) in enumerate(test_iterator):
         if i <= 10:
@@ -123,17 +126,18 @@ def train(params):
     s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
 
     # TODO [Visualize Grids]
-    utils.visualize_grids(s2_grids)
+    if params['visualize']:
+        utils.visualize_grids(s2_grids)
 
     # Iterate by Epoch
     logger.info("Start Training")
     for epoch in range(params['num_epochs']):
 
         # Save the model for each step
-        # if epoch % params['save_interval'] == 0:
-        #     save_path = os.path.join(params['save_dir'], '{date_time}-model.ckpt'.format(date_time=date_time))
-        #     torch.save(model.state_dict(), save_path)
-        #     logger.info('Saved model checkpoints into {}...'.format(save_path))
+        if epoch % params['save_interval'] == 0:
+            save_path = os.path.join(params['save_dir'], '{date_time}-model.ckpt'.format(date_time=date_time))
+            torch.save(model.state_dict(), save_path)
+            logger.info('Saved model checkpoints into {}...'.format(save_path))
 
         running_loss = []
         for batch_idx, (inputs, labels) in enumerate(train_iterator):
@@ -146,18 +150,37 @@ def train(params):
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1)  # [B, N, 3]
                 
-            # TODO [Visualization [Raw]]
-            origins = inputs.clone()
-            utils.visualize_raw(inputs, labels)
-
             # Data Mapping
             inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
 
-            # Data Translation
-            inputs = utils.data_translation(inputs, s2_grids, params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
-
-            # TODO [Visualization [Sphere]]
-            utils.visualize_sphere(origins, inputs, labels, s2_grids, folder='sphere')
+            
+            if params['visualize']:
+                
+                # TODO [Visualization [Raw]]
+                origins = inputs.clone()
+                utils.visualize_raw(inputs, labels)
+                
+                # TODO [Visualization [Sphere]]
+                print("---------- Static ------------")
+                params['use_static_sigma'] = True
+                inputs1 = utils.data_translation(inputs, s2_grids, params)  
+                utils.visualize_sphere(origins, inputs1, labels, s2_grids, params, folder='sphere')
+                
+                print("\n---------- Covariance ------------")
+                params['use_static_sigma'] = False
+                params['sigma_layer_diff'] = False
+                inputs2 = utils.data_translation(inputs, s2_grids, params)  
+                utils.visualize_sphere(origins, inputs2, labels, s2_grids, params, folder='sphere')
+                
+                print("\n---------- Layer Diff ------------")
+                params['use_static_sigma'] = False
+                params['sigma_layer_diff'] = True
+                inputs3 = utils.data_translation(inputs, s2_grids, params)  
+                utils.visualize_sphere(origins, inputs3, labels, s2_grids, params, folder='other')
+                return
+            else:
+                # Data Translation
+                inputs = utils.data_translation(inputs, s2_grids, params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
 
             """ Run Model """
             outputs = model(inputs)
@@ -176,8 +199,7 @@ def train(params):
                                                                                                 loss=np.mean(
                                                                                                     running_loss)))
 
-        acc = eval(test_iterator, model)
-        logger.info('\n' + str(model.weights))
+        acc = eval(test_iterator, model, params)
         logger.info(
             "**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
                                                                                                           total_epoch=
@@ -194,8 +216,6 @@ if __name__ == '__main__':
 
     args = utils.load_args()
 
-    # os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-
     params = {
         'train_dir': os.path.join(args.data_path, "train"),
         'test_dir' : os.path.join(args.data_path, "test"),
@@ -205,6 +225,7 @@ if __name__ == '__main__':
         'num_epochs': args.num_epochs,
         'batch_size': args.batch_size,
         'num_points': args.num_points,
+        'visualize' : bool(args.visualize),
 
         'log_interval': args.log_interval,
         'save_interval': args.save_interval,
@@ -214,8 +235,9 @@ if __name__ == '__main__':
         'num_grids':          args.num_grids,
         'base_radius':        args.base_radius,
         'static_sigma':       args.static_sigma,
-        'use_static_sigma':   args.use_static_sigma,
-        'use_weights':        args.use_weights,
+        'use_static_sigma':   bool(args.use_static_sigma),
+        'use_weights':        bool(args.use_weights),
+        'sigma_layer_diff':   bool(args.sigma_layer_diff),
 
 
         'feature_out1': 8,
