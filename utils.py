@@ -284,7 +284,7 @@ def data_mapping(inputs, base_radius=1):
     return inputs
 
 
-def density_mapping(b, inputs, data_index, density_radius, sphere_radius, s2_grid, sigma_layer_diff=False, static_sigma=0.05, use_static_sigma=True, use_weights=False):
+def density_mapping(b, inputs, data_index, density_radius, sphere_radius, s2_grid, sigma_diag, sigma_layer_diff=False, static_sigma=0.05, use_static_sigma=True, use_weights=False):
     """
     inputs : [B, N, 3]
     index : index of valid corresponding inputs
@@ -306,35 +306,6 @@ def density_mapping(b, inputs, data_index, density_radius, sphere_radius, s2_gri
 
     # Calculate Density & Apply Cropping
     numerator = inputs - s2_grid  # -> [B, N, 4b^2, 3]
-
-    # If Use Static Sigma
-    if use_static_sigma:
-        # [Use Static Sigma] For Testing With Static Sigma
-        sigma_diag = torch.tensor([static_sigma, static_sigma, static_sigma]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda()
-    else:
-        # Calculate Sigma [Covariance]
-        sigma = torch.matmul(numerator.transpose(2, 3), numerator)  # -> [B, N, 3, 3]
-        sigma = sigma / (4 * (b ** 2))
-
-        index = torch.tensor([[0, 1, 2], [0, 1, 2], [0, 1, 2]]).cuda()
-        index = index.unsqueeze(0).unsqueeze(0)
-        index = index.repeat(B, N, 1, 1)
-        sigma_diag = torch.gather(sigma, 2, index)  # -> [B, N, 3, 3] -> [[diag1, diag2, diag3] * 3]
-        sigma_diag = sigma_diag[:, :, 0, :]  # -> [B, N, 3]
-        sigma_diag = sigma_diag.unsqueeze(2)  # -> [B, N, 1, 3]
-
-        # Adjust Sigma Values [0.2~0.7] -> [0.02~0.07]
-        # Mean Sigma for each point
-        
-        sigma_diag = sigma_diag / 10  
-        
-        # If request E[sigma] vary over diff layers of shell
-        if sigma_layer_diff:
-            sigma_diag = sigma_diag * sphere_radius
-            
-        sigma_diag = torch.mean(sigma_diag, dim=3, keepdim=True).repeat(1, 1, 1, 3)  # -> [B, N, 1, 3]
-
-
         
     sigma_inverse = 1 / sigma_diag
     
@@ -388,7 +359,7 @@ def data_cropping(data, inner_radius, radius):
     return index
 
 
-def data_translation(inputs, s2_grids, params):
+def data_translation(inputs, s2_grids, params, sigma_diag):
     """
     :param inputs: [B, N, 3]
     :param s2_grids: []
@@ -410,6 +381,7 @@ def data_translation(inputs, s2_grids, params):
             density_radius=params['density_radius'],
             sphere_radius=radius,
             s2_grid=s2_grid,
+            sigma_diag=sigma_diag,
             sigma_layer_diff=params['sigma_layer_diff'],
             static_sigma=params['static_sigma'],
             use_static_sigma=params['use_static_sigma'],

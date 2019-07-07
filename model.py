@@ -39,6 +39,9 @@ class SphericalGMMNet(nn.Module):
         self.bandwidth_out4 = self.params['bandwidth_out4']
         self.bandwidth_out5 = self.params['bandwidth_out5']
 
+        self.s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
+        self.sigma_diag = nn.init.constant_(sigma_diag, 0.5).cuda()
+        
         grid_s2 = s2_near_identity_grid()
         grid_so3 = so3_near_identity_grid()
 
@@ -243,13 +246,15 @@ class SphericalGMMNet(nn.Module):
             ys.append(y)
         return ys
     
+    
     def forward(self, x):
         """
         :param x: list( Tensor([B, 2b0, 2b0]) * num_grids )
         """
 
-        # S2 Conv 
+        x = utils.data_translation(x, self.s2_grids, self.params, self.sigma_diag)
         
+        # S2 Conv 
         x = [self.conv0_0(x[0]), # -> [B, f1, 2b1, 2b1, 2b1] * num_grids
              self.conv0_1(x[1]), 
              self.conv0_2(x[2])]

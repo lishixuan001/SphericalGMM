@@ -166,35 +166,6 @@ def train(params):
             # Data Mapping
             inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
 
-            
-            if params['visualize']:
-                
-                # TODO [Visualization [Raw]]
-                origins = inputs.clone()
-                utils.visualize_raw(inputs, labels)
-                
-                # TODO [Visualization [Sphere]]
-                print("---------- Static ------------")
-                params['use_static_sigma'] = True
-                inputs1 = utils.data_translation(inputs, s2_grids, params)  
-                utils.visualize_sphere(origins, inputs1, labels, s2_grids, params, folder='sphere')
-                
-                print("\n---------- Covariance ------------")
-                params['use_static_sigma'] = False
-                params['sigma_layer_diff'] = False
-                inputs2 = utils.data_translation(inputs, s2_grids, params)  
-                utils.visualize_sphere(origins, inputs2, labels, s2_grids, params, folder='sphere')
-                
-                print("\n---------- Layer Diff ------------")
-                params['use_static_sigma'] = False
-                params['sigma_layer_diff'] = True
-                inputs3 = utils.data_translation(inputs, s2_grids, params)  
-                utils.visualize_sphere(origins, inputs3, labels, s2_grids, params, folder='other')
-                return
-            else:
-                # Data Translation
-                inputs = utils.data_translation(inputs, s2_grids, params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
-
             """ Run Model """
             outputs = model(inputs)
 
