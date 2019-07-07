@@ -28,7 +28,7 @@ def load_args():
     parser.add_argument('--num_points', default=512, type=int, metavar='N', help='Number of points in a image')
     parser.add_argument('--log_interval', default=1000, type=int, metavar='N', help='log_interval')
     parser.add_argument('--baselr', default=5e-5, type=float, metavar='N', help='learning rate')
-    parser.add_argument('--gpu', default='4,5', type=str, metavar='XXX', help='GPU number')
+    parser.add_argument('--gpu', default='3', type=str, metavar='XXX', help='GPU number')
     parser.add_argument('--visualize', default=0, type=int, metavar='XXX', help='if do visualization')
     
     # Modal Structure

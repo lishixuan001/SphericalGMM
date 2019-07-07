@@ -19,7 +19,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def eval(test_iterator, model, params, logger, num_epochs=20):
+def eval(test_iterator, model, params, logger, num_epochs=10):
     
     logger.info("================================ Eval ================================\n")
     
@@ -31,6 +31,7 @@ def eval(test_iterator, model, params, logger, num_epochs=20):
         acc_all = []
         with torch.no_grad():
             for _, (inputs, labels) in enumerate(test_iterator):
+                
                 inputs = Variable(inputs).cuda()
                 B, N, D = inputs.size()
 
@@ -136,14 +137,18 @@ def train(params):
     # TODO [Visualize Grids]
     if params['visualize']:
         utils.visualize_grids(s2_grids)
-
+    
+    # Keep track of max Accuracy during training
+    acc, max_acc = 0, 0
+    
     # Iterate by Epoch
     logger.info("Start Training")
     for epoch in range(params['num_epochs']):
 
         # Save the model for each step
-        if epoch % params['save_interval'] == 0:
-            save_path = os.path.join(params['save_dir'], '{date_time}-model.ckpt'.format(date_time=date_time))
+        if acc > max_acc:
+            max_acc = acc
+            save_path = os.path.join(params['save_dir'], '{date_time}-[{acc}]-model.ckpt'.format(date_time=date_time, acc=acc))
             torch.save(model.state_dict(), save_path)
             logger.info('Saved model checkpoints into {}...'.format(save_path))
 
@@ -157,7 +162,7 @@ def train(params):
             if inputs.shape[-1] == 2:
                 zero_padding = torch.zeros((B, N, 1), dtype=inputs.dtype).cuda()
                 inputs = torch.cat((inputs, zero_padding), -1)  # [B, N, 3]
-                
+
             # Data Mapping
             inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
 
