@@ -307,6 +307,7 @@ def density_mapping(b, inputs, data_index, density_radius, sphere_radius, s2_gri
     # Calculate Density & Apply Cropping
     numerator = inputs - s2_grid  # -> [B, N, 4b^2, 3]
         
+    sigma_diag = sigma_diag.unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, 1, 1, 1)
     sigma_inverse = 1 / sigma_diag
     
     middle = torch.mul(numerator, sigma_inverse)

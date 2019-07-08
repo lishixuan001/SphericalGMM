@@ -42,10 +42,6 @@ def eval(test_iterator, model, params, logger, num_epochs=10):
                 # Data Mapping
                 inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
 
-                # Data Translation
-                inputs = utils.data_translation(inputs, s2_grids,
-                                                params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
-
                 outputs = model(inputs)
                 outputs = torch.argmax(outputs, dim=-1)
                 acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
