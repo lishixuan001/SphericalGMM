@@ -360,7 +360,7 @@ def data_cropping(data, inner_radius, radius):
     return index
 
 
-def data_translation(inputs, s2_grids, params, sigma_diag):
+def data_translation(inputs, s2_grids, params, sigma_diags):
     """
     :param inputs: [B, N, 3]
     :param s2_grids: []
@@ -373,7 +373,7 @@ def data_translation(inputs, s2_grids, params, sigma_diag):
     mappings = list()
     inner_radius = 0.0
 
-    for radius, s2_grid in s2_grids:
+    for i, (radius, s2_grid) in enumerate(s2_grids):
         index = data_cropping(inputs, inner_radius, radius) # [B, N, 1] with invalid points left zeros
         mapping = density_mapping(
             b=params['bandwidth_0'],
@@ -382,7 +382,7 @@ def data_translation(inputs, s2_grids, params, sigma_diag):
             density_radius=params['density_radius'],
             sphere_radius=radius,
             s2_grid=s2_grid,
-            sigma_diag=sigma_diag,
+            sigma_diag=sigma_diags[i],
             sigma_layer_diff=params['sigma_layer_diff'],
             static_sigma=params['static_sigma'],
             use_static_sigma=params['use_static_sigma'],

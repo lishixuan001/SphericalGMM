@@ -219,7 +219,6 @@ if __name__ == '__main__':
         'use_weights':        bool(args.use_weights),
         'sigma_layer_diff':   bool(args.sigma_layer_diff),
 
-
         'feature_out1': 8,
         'feature_out2': 16,
         'feature_out3': 32,
