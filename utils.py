@@ -41,7 +41,7 @@ def load_args():
     parser.add_argument('--resume_testing', default=None, type=str, metavar='N', help='load used model at iteration')
 
     # Multi-Grid
-    parser.add_argument('--num_grids', default=3, type=int, metavar='N', help='number of shells')
+    parser.add_argument('--num_grids', default=1, type=int, metavar='N', help='number of shells')
     parser.add_argument('--base_radius', default=1, type=int, metavar='N', help='radius of the out-est shell')
 
     # GMM
