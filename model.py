@@ -263,7 +263,7 @@ class SphericalGMMNet(nn.Module):
              F.relu(x[1]), 
              F.relu(x[2])]
         x = [self.bn0_0(x[0]), 
-             self.bn0_1(x[1]), 
+                 self.bn0_1(x[1]), cd I
              self.bn0_2(x[2])]
         
         # SO3 Conv
