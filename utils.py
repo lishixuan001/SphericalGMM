@@ -149,13 +149,13 @@ def pairwise_distance(point_cloud):
     return point_cloud_square + point_cloud_inner + point_cloud_square_tranpose
 
 
-def get_grids(b, num_grids, base_radius=1, grid_type="Driscoll-Healy"):
+def get_grids(b, num_grids, base_radius=1, center=[0, 0, 0], grid_type="Driscoll-Healy"):
     """
     :param b: the number of grids on the sphere
     :param base_radius: the radius of each sphere
     :param grid_type: "Driscoll-Healy"
     :param num_grids: number of grids
-    :return: [(radius, tensor([2b, 2b, 3])) * 3]
+    :return: [(radius, tensor([2b, 2b, 3])) * num_grids]
     """
 
     grids = list()
@@ -173,12 +173,15 @@ def get_grids(b, num_grids, base_radius=1, grid_type="Driscoll-Healy"):
         # look this link for more information: https://pytorch.org/docs/stable/notes/broadcasting.html
         x_ = radius * torch.sin(theta) * torch.cos(phi)
         x = x_.reshape((1, 4 * b * b))  # tensor -> [1, 4 * b * b]
+        x = x + center[0]
 
         y_ = radius * torch.sin(theta) * torch.sin(phi)
         y = y_.reshape((1, 4 * b * b))
+        y = y + center[1]
 
         z_ = radius * torch.cos(theta)
         z = z_.reshape((1, 4 * b * b))
+        z = z + center[2]
 
         grid = torch.cat((x, y, z), dim=0)  # -> [3, 4b^2]
         grid = grid.transpose(0, 1)  # -> [4b^2, 3]
@@ -191,6 +194,44 @@ def get_grids(b, num_grids, base_radius=1, grid_type="Driscoll-Healy"):
     assert len(grids) == num_grids
     return grids
 
+
+def get_cube_grids(b, num_grids, base_radius):
+    # Create sphere centers
+    x_ = np.linspace(-2/3, 2/3, 3)
+    y_ = np.linspace(-2/3, 2/3, 3)
+    z_ = np.linspace(-2/3, 2/3, 3)
+
+    x, y, z = np.meshgrid(x_, y_, z_, indexing='ij')
+
+    x = x.flatten()
+    y = y.flatten()
+    z = z.flatten()
+    
+    centers = np.array(list(zip(x, y, z)))
+    
+    # Create grids based on each center
+    all_grids = []
+    R = 2 * base_radius * 1/3 * np.sqrt(3) * 1/2
+    for center in centers:
+        grids = get_grids(b, num_grids, base_radius=R, center=center)
+        # grids = torch.stack(grids, dim=0) # tensor -> [num_grids, 2b, 2b, 3]
+        # all_grids.append(grids)
+        all_grids.append([center, grids]) # tensor -> [center, [(radius, tensor([2b, 2b, 3])) * num_grids]]
+    # all_grids = torch.stack(all_grids, dim=0) # tensor -> [num_centers, num_grids, 2b, 2b, 3]
+    return all_grids
+
+
+def visualize_cube_grids(s2_grids, folder='grid', colors=["#7b0001", "#ff0001", "#ff8db4"]):
+    grids = grids.transpose(0, 1)
+    fig = ipv.figure()
+    for i, layer in enumerate(grids):
+        layer = layer.reshape(-1, 3).transpose(0, 1)
+        x_axis = layer[0, :].cpu().numpy()
+        y_axis = layer[1, :].cpu().numpy()
+        z_axis = layer[2, :].cpu().numpy()
+        ipv.scatter(x_axis, y_axis, z_axis, marker="sphere", color=colors[i])
+    ipv.save("./imgs/{}/s2_grids.html".format(folder))
+    
 
 def visualize_grids(s2_grids, folder='grid', colors=['red', 'blue', 'orange']):
     fig = plt.figure(figsize=(10, 10))
@@ -226,6 +267,51 @@ def visualize_raw(inputs, labels, folder='raw'):
         plt.close()
 
 
+        
+def visualize_cube_sphere(origins, data, labels, s2_grids, params, folder='sphere'):
+    """
+    data :  list( list( Tensor([B, 1, 2b0, 2b0]) * num_grids ) * num_centers)
+    s2_grids: [center, [(radius, tensor([2b, 2b, 3])) * num_grids]]
+    """
+    if params['use_static_sigma']:
+        subfolder = "static_sigma_{}".format(params['static_sigma'])
+    else:
+        subfolder = "conv_sigma"
+    
+    for i in range(10):
+        label = str(labels[i].item())
+        for j, grids in enumerate(data):
+            fig, axs = plt.subplots(1, 3)
+            for k, grid in enumerate(grids):
+                grid = grid[j][k][i][0]
+                grid = grid.detach().cpu().numpy() # [2b, 2b]
+                axs[k].set_title('Label {}, Center {}, Layer {}'.format(label, j, k))
+                axs[k].imshow(grid)
+            plt.savefig('./imgs/{}/{}/label[{}]-center[{}]-map.png'.format(folder, subfolder, label, j))
+            plt.close()
+            
+    for i in range(10):
+        label = str(labels[i].item())
+        fig = plt.figure(figsize=(15, 15))
+        ax = fig.add_subplot(111, projection='3d')
+        image = origins[i].detach().cpu().numpy()
+        ax.scatter3D(image[:, 0], image[:, 1], image[:, 2], marker="^", c='red')
+        for j, grids in enumerate(data):
+            _, center_grid = s2_grids[j]
+            center_data = data[j]
+            for k, shell in enumerate(grids):
+                _, shell_grid = center_grid[k] # Tensor([2b, 2b, 3])
+                shell_data = center_data[k][i] # Tensor([1, 2b0, 2b0])
+                shell_grid = shell_grid.view(-1, 3)
+                x = shell_grid[:, 0].squeeze().cpu().numpy()
+                y = shell_grid[:, 1].squeeze().cpu().numpy()
+                z = shell_grid[:, 2].squeeze().cpu().numpy()
+                shell_data = shell_data.transpose(1, 2, 0) # Tensor([2b0, 2b0, 1])
+                shell_data = shell_data.view(-1, 1)[:, 0].detach().cpu().numpy()
+                ax.scatter(x, y, z, c=shell_data)
+        plt.savefig('./imgs/{}/{}/label[{}]-grid.png'.format(folder, subfolder, label))
+        plt.close()
+        
 def visualize_sphere(origins, data, labels, s2_grids, params, folder='sphere'):
     """
     data :  list( Tensor([B, 2b, 2b]) * num_grids )
@@ -284,7 +370,7 @@ def data_mapping(inputs, base_radius=1):
     return inputs
 
 
-def density_mapping(b, inputs, data_index, density_radius, sphere_radius, s2_grid, sigma_diag, sigma_layer_diff=False, static_sigma=0.05, use_static_sigma=True, use_weights=False):
+def density_mapping(b, inputs, data_index, density_radius, sphere_radius, s2_grid, sigma_layer_diff=False, static_sigma=0.05, use_static_sigma=True, use_weights=False):
     """
     inputs : [B, N, 3]
     index : index of valid corresponding inputs
@@ -306,8 +392,34 @@ def density_mapping(b, inputs, data_index, density_radius, sphere_radius, s2_gri
 
     # Calculate Density & Apply Cropping
     numerator = inputs - s2_grid  # -> [B, N, 4b^2, 3]
+
+    # If Use Static Sigma
+    if use_static_sigma:
+        # [Use Static Sigma] For Testing With Static Sigma
+        sigma_diag = torch.tensor([static_sigma, static_sigma, static_sigma]).unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, N, 1, 1).cuda()
+    else:
+        # Calculate Sigma [Covariance]
+        sigma = torch.matmul(numerator.transpose(2, 3), numerator)  # -> [B, N, 3, 3]
+        sigma = sigma / (4 * (b ** 2))
+
+        index = torch.tensor([[0, 1, 2], [0, 1, 2], [0, 1, 2]]).cuda()
+        index = index.unsqueeze(0).unsqueeze(0)
+        index = index.repeat(B, N, 1, 1)
+        sigma_diag = torch.gather(sigma, 2, index)  # -> [B, N, 3, 3] -> [[diag1, diag2, diag3] * 3]
+        sigma_diag = sigma_diag[:, :, 0, :]  # -> [B, N, 3]
+        sigma_diag = sigma_diag.unsqueeze(2)  # -> [B, N, 1, 3]
+
+        # Adjust Sigma Values [0.2~0.7] -> [0.02~0.07]
+        # Mean Sigma for each point
         
-    sigma_diag = sigma_diag.unsqueeze(0).unsqueeze(0).unsqueeze(0).repeat(B, 1, 1, 1)
+        sigma_diag = sigma_diag / 10  
+        
+        # If request E[sigma] vary over diff layers of shell
+        if sigma_layer_diff:
+            sigma_diag = sigma_diag * sphere_radius
+            
+        sigma_diag = torch.mean(sigma_diag, dim=3, keepdim=True).repeat(1, 1, 1, 3)  # -> [B, N, 1, 3]
+        
     sigma_inverse = 1 / sigma_diag
     
     middle = torch.mul(numerator, sigma_inverse)
@@ -359,6 +471,60 @@ def data_cropping(data, inner_radius, radius):
 
     return index
 
+
+def data_cube_cropping(data, center, inner_radius, radius):
+    """
+    Crop the valid data points needed for the given radius
+    :param data: [B, N, 3]
+    :param inner_radius: (float) bottom line for the croption
+    :param radius: upper line for the croption
+    :return: [B, N, 3] where only valid points have value and others all zeros
+    """
+    center = torch.Tensor(center).view(1, 1, 3)
+    distances = torch.sqrt(torch.sum(torch.pow(data - center, 2), dim=2, keepdim=True)) # [B, N, 1]
+
+    index_lower = distances >= inner_radius
+    index_upper = distances <= radius
+    index = index_lower * index_upper
+    index = index.float() # [B, N, 1]
+
+    return index
+
+
+def data_cube_translation(inputs, s2_grids, params):
+    """
+    s2_grids: [[center, [(radius, tensor([2b, 2b, 3])) * num_grids]] * num_centers]
+    :return: list( list( Tensor([B, 2b, 2b]) * num_grids ) * num_centers)
+    """
+    B, N, D = inputs.size()
+    inputs = inputs.cuda()
+    
+    all_mappings = []
+    for center, grids in s2_grids:
+        inner_radius = 0.0
+        mappings = list()
+        for i, (radius, shell) in enumerate(grids):
+            index = data_cube_cropping(inputs, center, inner_radius, radius) # [B, N, 1] with invalid points left zeros
+            mapping = density_mapping(
+                b=params['bandwidth_0'],
+                inputs=inputs,
+                data_index=index,
+                density_radius=params['density_radius'],
+                sphere_radius=radius,
+                s2_grid=shell,
+                sigma_layer_diff=params['sigma_layer_diff'],
+                static_sigma=params['static_sigma'],
+                use_static_sigma=params['use_static_sigma'],
+                use_weights=params['use_weights']
+            ).float()  # -> (B, 2b, 2b)
+            mapping = mapping.view(B, 1, 2 * params['bandwidth_0'],
+                                     2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
+            mappings.append(mapping)
+            inner_radius = radius
+        all_mappings.append(mappings)
+
+    return all_mappings
+    
 
 def data_translation(inputs, s2_grids, params, sigma_diags):
     """
