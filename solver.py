@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 
 import torch
+import torch.nn as nn
 import torch.utils.data
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -19,14 +20,14 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def eval(test_iterator, model, params, logger, num_epochs=10):
+def eval(model, params, logger, num_epochs=3, rotate=True):
     
     logger.info("================================ Eval ================================\n")
     
-    s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
+    s2_grids = utils.get_cube_grids(b=params['bandwidth_0'], cube_size=params['cube_size'], num_grids=params['num_grids'], base_radius=params['base_radius'])
 
     acc_overall = list()
-    test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
+    test_iterator = utils.load_data_h5(params, data_type="test", rotate=rotate, batch=False)
     for epoch in range(num_epochs):
         acc_all = []
         with torch.no_grad():
@@ -41,6 +42,7 @@ def eval(test_iterator, model, params, logger, num_epochs=10):
 
                 # Data Mapping
                 inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
+                inputs = utils.data_cube_translation(inputs, s2_grids, params)
 
                 outputs = model(inputs)
                 outputs = torch.argmax(outputs, dim=-1)
@@ -52,7 +54,7 @@ def eval(test_iterator, model, params, logger, num_epochs=10):
     return np.max(acc_overall)
 
 
-def test(params, date_time, num_epochs=1000):
+def test(params, model_name, num_epochs=1000):
     logger = setup_logger("SphericalGMMNet")
     logger.info("Loading Data")
 
@@ -62,16 +64,17 @@ def test(params, date_time, num_epochs=1000):
     # Model Configuration Setup
     model = SphericalGMMNet(params).cuda()
     model = model.cuda()
+    if len(params['gpu'].split(",")) >= 2:
+        model = nn.DataParallel(model)
 
-    logger.info('Loading the trained models from {date_time} ...'.format(date_time=date_time))
-    model_path = os.path.join(params['save_dir'], '{date_time}-model.ckpt'.format(date_time=date_time))
+    logger.info('Loading the trained models from {model_name} ...'.format(model_name=model_name))
+    model_path = os.path.join(params['save_dir'], '{model_name}'.format(model_name=model_name))
     model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
 
     # Generate the grids
-    # [(radius, tensor([2b, 2b, 3])) * 3]
-    s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
+    s2_grids = utils.get_cube_grids(b=params['bandwidth_0'], cube_size=params['cube_size'], num_grids=params['num_grids'], base_radius=params['base_radius'])
 
-    test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
+    test_iterator = utils.load_data_h5(params, data_type="test", rotate=True, batch=False)
     for epoch in range(num_epochs):
         acc_all = []
         with torch.no_grad():
@@ -87,8 +90,7 @@ def test(params, date_time, num_epochs=1000):
                 inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
 
                 # Data Translation
-                inputs = utils.data_translation(inputs, s2_grids,
-                                                params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
+                inputs = utils.data_cube_translation(inputs, s2_grids, params)
 
                 outputs = model(inputs)
                 outputs = torch.argmax(outputs, dim=-1)
@@ -103,13 +105,16 @@ def train(params):
     logger.info("Loading Data")
 
     # Load Data
-    train_iterator = utils.load_data_h5(params['train_dir'], batch_size=params['batch_size'])
-    test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
+    train_iterator = utils.load_data_h5(params, data_type="train")
 
     # Model Setup
     logger.info("Model Setting Up")
+
+
     model = SphericalGMMNet(params).cuda()
     model = model.cuda()
+    if len(params['gpu'].split(",")) >= 2:
+        model = nn.DataParallel(model)
 
     # Model Configuration Setup
     optim = torch.optim.Adam(model.parameters(), lr=params['baselr'])
@@ -127,30 +132,33 @@ def train(params):
         logger.info("{name} : [{value}]".format(name=name, value=value))
 
     # Generate the grids
-    # [(radius, tensor([2b, 2b, 3])) * 3]
-    # s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
-    s2_grids = utils.get_cube_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
+    s2_grids = utils.get_cube_grids(b=params['bandwidth_0'], cube_size=params['cube_size'], num_grids=params['num_grids'], base_radius=params['base_radius'])
 
     # TODO [Visualize Grids]
     if params['visualize']:
-        # utils.visualize_grids(s2_grids)
-        # utils.visualize_cube_grids(s2_grids)
-        pass
+        utils.visualize_cube_grids(s2_grids, params)
     
     # Keep track of max Accuracy during training
-    acc, max_acc = 0, 0
+    non_rotate_acc, rotate_acc = 0, 0
+    max_non_rotate_acc, max_rotate_acc = 0, 0
     
     # Iterate by Epoch
     logger.info("Start Training")
     for epoch in range(params['num_epochs']):
 
         # Save the model for each step
-        if acc > max_acc:
-            max_acc = acc
-            save_path = os.path.join(params['save_dir'], '{date_time}-[{acc}]-model.ckpt'.format(date_time=date_time, acc=acc))
+        if non_rotate_acc > max_non_rotate_acc:
+            max_non_rotate_acc = non_rotate_acc
+            save_path = os.path.join(params['save_dir'], '{date_time}-NR-[{acc}]-model.ckpt'.format(date_time=date_time, acc=non_rotate_acc))
+            torch.save(model.state_dict(), save_path)
+            logger.info('Saved model checkpoints into {}...'.format(save_path))
+        if rotate_acc > max_rotate_acc:
+            max_rotate_acc = rotate_acc
+            save_path = os.path.join(params['save_dir'], '{date_time}-R-[{acc}]-model.ckpt'.format(date_time=date_time, acc=rotate_acc))
             torch.save(model.state_dict(), save_path)
             logger.info('Saved model checkpoints into {}...'.format(save_path))
 
+        # Running Model
         running_loss = []
         for batch_idx, (inputs, labels) in enumerate(train_iterator):
 
@@ -169,7 +177,7 @@ def train(params):
                 
                 # TODO [Visualization [Raw]]
                 origins = inputs.clone()
-                utils.visualize_raw(inputs, labels)
+                # utils.visualize_raw(inputs, labels)
                 
                 # TODO [Visualization [Sphere]]
                 print("---------- Static ------------")
@@ -187,12 +195,12 @@ def train(params):
                 params['use_static_sigma'] = False
                 params['sigma_layer_diff'] = True
                 inputs3 = utils.data_cube_translation(inputs, s2_grids, params)  
-                utils.visualize_cube_sphere(origins, inputs3, labels, s2_grids, params, folder='other')
+                utils.visualize_cube_sphere(origins, inputs3, labels, s2_grids, params, folder='sphere')
                 return
             else:
                 # Data Translation
-                inputs = utils.data_translation(inputs, s2_grids, params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
-
+                inputs = utils.data_cube_translation(inputs, s2_grids, params) # list( list( Tensor([B, 2b, 2b]) * num_grids ) * num_centers)
+            
             """ Run Model """
             outputs = model(inputs)
 
@@ -210,7 +218,7 @@ def train(params):
                                                                                                 loss=np.mean(
                                                                                                     running_loss)))
 
-        acc = eval(test_iterator, model, params, logger)
+        non_rotate_acc = eval(model, params, logger, rotate=False)
         logger.info(
             "**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
                                                                                                           total_epoch=
@@ -218,7 +226,17 @@ def train(params):
                                                                                                               'num_epochs'],
                                                                                                           loss=np.mean(
                                                                                                               running_loss),
-                                                                                                          acc=acc))
+                                                                                                          acc=non_rotate_acc))
+        
+        rotate_acc = eval(model, params, logger, rotate=True)
+        logger.info(
+            "**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
+                                                                                                          total_epoch=
+                                                                                                          params[
+                                                                                                              'num_epochs'],
+                                                                                                          loss=np.mean(
+                                                                                                              running_loss),
+                                                                                                          acc=rotate_acc))        
 
     logger.info('Finished Training')
 
@@ -242,7 +260,9 @@ if __name__ == '__main__':
         'save_interval': args.save_interval,
         'baselr': args.baselr,
         'density_radius': args.density_radius,
-
+ 
+        'rotate_deflection':  args.rotate_deflection,
+        'cube_size':          args.cube_size,
         'num_grids':          args.num_grids,
         'base_radius':        args.base_radius,
         'static_sigma':       args.static_sigma,

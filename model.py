@@ -40,8 +40,6 @@ class SphericalGMMNet(nn.Module):
         self.bandwidth_out5 = self.params['bandwidth_out5']
 
         self.s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
-        sigma_diag = torch.empty(self.num_grids, 3)
-        self.sigma_diag = nn.Parameter(nn.init.constant_(sigma_diag, 0.5).cuda())
         
         grid_s2 = s2_near_identity_grid()
         grid_so3 = so3_near_identity_grid()
@@ -248,68 +246,72 @@ class SphericalGMMNet(nn.Module):
         return ys
     
     
-    def forward(self, x):
+    def forward(self, data):
         """
-        :param x: list( Tensor([B, 2b0, 2b0]) * num_grids )
+        :param x: list( list( Tensor([B, 2b, 2b]) * num_grids ) * num_centers)
         """
+        
+        features = []
+        shells = list([list(), list(), list()])
+        for x in data:
+            # S2 Conv 
+            x = [self.conv0_0(x[0]), # -> [B, f1, 2b1, 2b1, 2b1] * num_grids
+                 self.conv0_1(x[1]), 
+                 self.conv0_2(x[2])]
+            x = [F.relu(x[0]), 
+                 F.relu(x[1]), 
+                 F.relu(x[2])]
+            x = [self.bn0_0(x[0]), 
+                     self.bn0_1(x[1]),
+                 self.bn0_2(x[2])]
 
-        x = utils.data_translation(x, self.s2_grids, self.params, self.sigma_diag)
-        
-        # S2 Conv 
-        x = [self.conv0_0(x[0]), # -> [B, f1, 2b1, 2b1, 2b1] * num_grids
-             self.conv0_1(x[1]), 
-             self.conv0_2(x[2])]
-        x = [F.relu(x[0]), 
-             F.relu(x[1]), 
-             F.relu(x[2])]
-        x = [self.bn0_0(x[0]), 
-                 self.bn0_1(x[1]), cd I
-             self.bn0_2(x[2])]
-        
-        # SO3 Conv
-        x = [self.conv1_0(x[0]), # -> [B, f2, 2b2, 2b2, 2b2] * num_grids
-             self.conv1_1(x[1]), 
-             self.conv1_2(x[2])]
-        x = [F.relu(x[i]) for i in range(len(x))]
-        x = [self.bn1_0(x[0]), 
-             self.bn1_1(x[1]), 
-             self.bn1_2(x[2])]
-        
-        x = [self.conv2_0(x[0]), # -> [B, f3, 2b3, 2b3, 2b3] * num_grids
-             self.conv2_1(x[1]), 
-             self.conv2_2(x[2])]
-        x = [F.relu(x[i]) for i in range(len(x))]
-        x = [self.bn2_0(x[0]), 
-             self.bn2_1(x[1]), 
-             self.bn2_2(x[2])]
-        
-        x = [self.conv3_0(x[0]), # -> [B, f4, 2b4, 2b4, 2b4] * num_grids
-             self.conv3_1(x[1]), 
-             self.conv3_2(x[2])]
-        x = [F.relu(x[i]) for i in range(len(x))]
-        x = [self.bn3_0(x[0]), 
-             self.bn3_1(x[1]), 
-             self.bn3_2(x[2])]
-        
-        x = [self.conv4_0(x[0]), # -> [B, f5, 2b5, 2b5, 2b5] * num_grids
-             self.conv4_1(x[1]), 
-             self.conv4_2(x[2])]
-        x = [F.relu(x[i]) for i in range(len(x))]
-        x = [self.bn4_0(x[0]), 
-             self.bn4_1(x[1]), 
-             self.bn4_2(x[2])]
+            # SO3 Conv
+            x = [self.conv1_0(x[0]), # -> [B, f2, 2b2, 2b2, 2b2] * num_grids
+                 self.conv1_1(x[1]), 
+                 self.conv1_2(x[2])]
+            x = [F.relu(x[i]) for i in range(len(x))]
+            x = [self.bn1_0(x[0]), 
+                 self.bn1_1(x[1]), 
+                 self.bn1_2(x[2])]
 
-        x = [so3_integrate(x[i]) for i in range(len(x))]  # -> (B, f5) * num_grids
+            x = [self.conv2_0(x[0]), # -> [B, f3, 2b3, 2b3, 2b3] * num_grids
+                 self.conv2_1(x[1]), 
+                 self.conv2_2(x[2])]
+            x = [F.relu(x[i]) for i in range(len(x))]
+            x = [self.bn2_0(x[0]), 
+                 self.bn2_1(x[1]), 
+                 self.bn2_2(x[2])]
+
+            x = [self.conv3_0(x[0]), # -> [B, f4, 2b4, 2b4, 2b4] * num_grids
+                 self.conv3_1(x[1]), 
+                 self.conv3_2(x[2])]
+            x = [F.relu(x[i]) for i in range(len(x))]
+            x = [self.bn3_0(x[0]), 
+                 self.bn3_1(x[1]), 
+                 self.bn3_2(x[2])]
+
+            x = [self.conv4_0(x[0]), # -> [B, f5, 2b5, 2b5, 2b5] * num_grids
+                 self.conv4_1(x[1]), 
+                 self.conv4_2(x[2])]
+            x = [F.relu(x[i]) for i in range(len(x))]
+            x = [self.bn4_0(x[0]), 
+                 self.bn4_1(x[1]), 
+                 self.bn4_2(x[2])]
+
+            x = [so3_integrate(x[i]) for i in range(len(x))]  # -> (B, f5) * num_grids
+
+            x = [x[i].unsqueeze(0) for i in range(len(x))]
+            x = torch.cat(tuple(x), dim=0)  # -> (num_grids, B, f5)
+            
+            features.append(x)
         
-        x = [x[i].unsqueeze(0) for i in range(len(x))]
-        x = torch.cat(tuple(x), dim=0)  # -> (num_grids, B, f5)
-
-        N, B, C = x.shape
-
-        x = x.permute(1, 2, 0)  # -> (B, f5, num_grids)
+        x = torch.stack(features, dim=1) # -> [num_grids, num_centers, B, f5]
+        x = x.permute(2, 3, 0, 1) # -> [B, f5, num_grids, num_centers]
+        x, _ = torch.max(x, dim=-1)
+        
+        
         x = torch.mul(x, torch.sigmoid(self.weights))  # -> (B, f5, num_grids)
         x = torch.sum(x, dim=-1, keepdim=False)  # -> (B, f5)
-
         x = self.out_layer(x)
         
         return x
