@@ -41,10 +41,7 @@ class SphericalGMMNet(nn.Module):
 
         self.s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
         sigma_diag = torch.empty(self.num_grids, 3)
-        sigma_diag[0, :] = 0.05
-        sigma_diag[1, :] = 0.04
-        sigma_diag[2, :] = 0.03
-        self.sigma_diag = nn.Parameter(sigma_diag.cuda())
+        self.sigma_diag = nn.Parameter(nn.init.constant_(sigma_diag, 0.5).cuda())
         
         grid_s2 = s2_near_identity_grid()
         grid_so3 = so3_near_identity_grid()
