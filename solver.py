@@ -1,14 +1,14 @@
-import os
-import time
-import datetime
-import h5py
-import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.utils.data
 import torch.nn.functional as F
 from torch.autograd import Variable
+
+import os
+import time
+import datetime
+import h5py
+import numpy as np
 
 import utils
 from os.path import join

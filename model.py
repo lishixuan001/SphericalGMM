@@ -1,9 +1,9 @@
 from __future__ import division
 import torch
-import time
-import utils
 import torch.nn as nn
 import torch.nn.functional as F
+import time
+import utils
 from s2cnn import S2Convolution
 from s2cnn import SO3Convolution
 from s2cnn import so3_near_identity_grid
@@ -38,8 +38,6 @@ class SphericalGMMNet(nn.Module):
         self.bandwidth_out3 = self.params['bandwidth_out3']
         self.bandwidth_out4 = self.params['bandwidth_out4']
         self.bandwidth_out5 = self.params['bandwidth_out5']
-
-        self.s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
         
         grid_s2 = s2_near_identity_grid()
         grid_so3 = so3_near_identity_grid()
@@ -50,7 +48,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out1,
             b_in=self.bandwidth_0,
             b_out=self.bandwidth_out1,
-            grid=grid_s2
+            # grid=grid_s2
         )
         
         self.conv0_1 = S2Convolution(
@@ -58,7 +56,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out1,
             b_in=self.bandwidth_0,
             b_out=self.bandwidth_out1,
-            grid=grid_s2
+            # grid=grid_s2
         )
         
         self.conv0_2 = S2Convolution(
@@ -66,7 +64,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out1,
             b_in=self.bandwidth_0,
             b_out=self.bandwidth_out1,
-            grid=grid_s2
+            # grid=grid_s2
         )
         
         self.bn0_0 = nn.BatchNorm3d(
@@ -87,7 +85,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out2,
             b_in=self.bandwidth_out1,
             b_out=self.bandwidth_out2,
-            grid=grid_so3
+            # grid=grid_so3
         )
         
         self.conv1_1 = SO3Convolution(
@@ -95,7 +93,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out2,
             b_in=self.bandwidth_out1,
             b_out=self.bandwidth_out2,
-            grid=grid_so3
+            # grid=grid_so3
         )
         
         self.conv1_2 = SO3Convolution(
@@ -103,7 +101,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out2,
             b_in=self.bandwidth_out1,
             b_out=self.bandwidth_out2,
-            grid=grid_so3
+            # grid=grid_so3
         )
         
         self.bn1_0 = nn.BatchNorm3d(
@@ -124,7 +122,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out3,
             b_in=self.bandwidth_out2,
             b_out=self.bandwidth_out3,
-            grid=grid_so3
+            # grid=grid_so3
         )
         
         self.conv2_1 = SO3Convolution(
@@ -132,7 +130,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out3,
             b_in=self.bandwidth_out2,
             b_out=self.bandwidth_out3,
-            grid=grid_so3
+            # grid=grid_so3
         )
         
         self.conv2_2 = SO3Convolution(
@@ -140,7 +138,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out3,
             b_in=self.bandwidth_out2,
             b_out=self.bandwidth_out3,
-            grid=grid_so3
+            # grid=grid_so3
         )
         
         self.bn2_0 = nn.BatchNorm3d(
@@ -161,7 +159,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out4,
             b_in=self.bandwidth_out3,
             b_out=self.bandwidth_out4,
-            grid=grid_so3
+            # grid=grid_so3
         ) 
         
         self.conv3_1 = SO3Convolution(
@@ -169,7 +167,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out4,
             b_in=self.bandwidth_out3,
             b_out=self.bandwidth_out4,
-            grid=grid_so3
+            # grid=grid_so3
         ) 
             
         self.conv3_2 = SO3Convolution(
@@ -177,7 +175,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out4,
             b_in=self.bandwidth_out3,
             b_out=self.bandwidth_out4,
-            grid=grid_so3
+            # grid=grid_so3
         ) 
         
         self.bn3_0 = nn.BatchNorm3d(
@@ -198,7 +196,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out5,
             b_in=self.bandwidth_out4,
             b_out=self.bandwidth_out5,
-            grid=grid_so3
+            # grid=grid_so3
         ) 
         
         self.conv4_1 = SO3Convolution(
@@ -206,7 +204,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out5,
             b_in=self.bandwidth_out4,
             b_out=self.bandwidth_out5,
-            grid=grid_so3
+            # grid=grid_so3
         ) 
         
         self.conv4_2 = SO3Convolution(
@@ -214,7 +212,7 @@ class SphericalGMMNet(nn.Module):
             nfeature_out=self.feature_out5,
             b_in=self.bandwidth_out4,
             b_out=self.bandwidth_out5,
-            grid=grid_so3
+            # grid=grid_so3
         ) 
         
         self.bn4_0 = nn.BatchNorm3d(

@@ -17,12 +17,12 @@ def load_args():
 
     # Model
     parser.add_argument('--data_path', default='../dataset/mnist', type=str, metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size', default=64, type=int, metavar='N', help='Batch size of test set')
+    parser.add_argument('--batch_size', default=40, type=int, metavar='N', help='Batch size of test set')
     parser.add_argument('--num_epochs', default=300, type=int, metavar='N', help='Epoch to run')
     parser.add_argument('--num_points', default=512, type=int, metavar='N', help='Number of points in a image')
     parser.add_argument('--log_interval', default=1000, type=int, metavar='N', help='log_interval')
     parser.add_argument('--baselr', default=5e-5, type=float, metavar='N', help='learning rate')
-    parser.add_argument('--gpu', default='7', type=str, metavar='XXX', help='GPU number')
+    parser.add_argument('--gpu', default='4', type=str, metavar='XXX', help='GPU number')
     parser.add_argument('--visualize', default=0, type=int, metavar='XXX', help='if do visualization')
     
     # Modal Structure
@@ -530,42 +530,6 @@ def data_sphere_translation(inputs, s2_grids, params):
         all_mappings.append(mappings)
 
     return all_mappings
-    
-
-def data_translation(inputs, s2_grids, params, sigma_diags):
-    """
-    :param inputs: [B, N, 3]
-    :param s2_grids: []
-    :param params: parameters
-    :return: list( Tensor([B, 2b, 2b]) * num_grids )
-    """
-    B, N, D = inputs.size()
-    inputs = inputs.cuda()
-
-    mappings = list()
-    inner_radius = 0.0
-
-    for i, (radius, s2_grid) in enumerate(s2_grids):
-        index = data_cropping(inputs, inner_radius, radius) # [B, N, 1] with invalid points left zeros
-        mapping = density_mapping(
-            b=params['bandwidth_0'],
-            inputs=inputs,
-            data_index=index,
-            density_radius=params['density_radius'],
-            sphere_radius=radius,
-            s2_grid=s2_grid,
-            sigma_diag=sigma_diags[i],
-            sigma_layer_diff=params['sigma_layer_diff'],
-            static_sigma=params['static_sigma'],
-            use_static_sigma=params['use_static_sigma'],
-            use_weights=params['use_weights']
-        ).float()  # -> (B, 2b, 2b)
-        mapping = mapping.view(B, 1, 2 * params['bandwidth_0'],
-                                 2 * params['bandwidth_0'])  # [B, 2b0, 2b0] -> [B, 1, 2b0, 2b0]
-        mappings.append(mapping)
-        inner_radius = radius
-
-    return mappings
 
 
 def euclidean_distance(p1, p2):
