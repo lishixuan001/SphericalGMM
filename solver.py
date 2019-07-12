@@ -24,7 +24,7 @@ def eval(model, params, logger, num_epochs=3, rotate=True):
     
     logger.info("================================ Eval ================================\n")
     
-    s2_grids = utils.get_cube_grids(b=params['bandwidth_0'], cube_size=params['cube_size'], num_grids=params['num_grids'], base_radius=params['base_radius'])
+    s2_grids = utils.get_sphere_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
 
     acc_overall = list()
     test_iterator = utils.load_data_h5(params, data_type="test", rotate=rotate, batch=False)
@@ -42,7 +42,7 @@ def eval(model, params, logger, num_epochs=3, rotate=True):
 
                 # Data Mapping
                 inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
-                inputs = utils.data_cube_translation(inputs, s2_grids, params)
+                inputs = utils.data_sphere_translation(inputs, s2_grids, params)
 
                 outputs = model(inputs)
                 outputs = torch.argmax(outputs, dim=-1)
@@ -72,7 +72,7 @@ def test(params, model_name, num_epochs=1000):
     model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
 
     # Generate the grids
-    s2_grids = utils.get_cube_grids(b=params['bandwidth_0'], cube_size=params['cube_size'], num_grids=params['num_grids'], base_radius=params['base_radius'])
+    s2_grids = utils.get_sphere_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
 
     test_iterator = utils.load_data_h5(params, data_type="test", rotate=True, batch=False)
     for epoch in range(num_epochs):
@@ -90,7 +90,7 @@ def test(params, model_name, num_epochs=1000):
                 inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
 
                 # Data Translation
-                inputs = utils.data_cube_translation(inputs, s2_grids, params)
+                inputs = utils.data_sphere_translation(inputs, s2_grids, params)
 
                 outputs = model(inputs)
                 outputs = torch.argmax(outputs, dim=-1)
@@ -132,11 +132,11 @@ def train(params):
         logger.info("{name} : [{value}]".format(name=name, value=value))
 
     # Generate the grids
-    s2_grids = utils.get_cube_grids(b=params['bandwidth_0'], cube_size=params['cube_size'], num_grids=params['num_grids'], base_radius=params['base_radius'])
+    s2_grids = utils.get_sphere_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
 
     # TODO [Visualize Grids]
     if params['visualize']:
-        utils.visualize_cube_grids(s2_grids, params)
+        utils.visualize_sphere_grids(s2_grids, params)
     
     # Keep track of max Accuracy during training
     non_rotate_acc, rotate_acc = 0, 0
@@ -182,24 +182,24 @@ def train(params):
                 # TODO [Visualization [Sphere]]
                 print("---------- Static ------------")
                 params['use_static_sigma'] = True
-                inputs1 = utils.data_cube_translation(inputs, s2_grids, params)  
-                utils.visualize_cube_sphere(origins, inputs1, labels, s2_grids, params, folder='sphere')
+                inputs1 = utils.data_sphere_translation(inputs, s2_grids, params)  
+                utils.visualize_sphere_sphere(origins, inputs1, labels, s2_grids, params, folder='sphere')
                 
                 print("\n---------- Covariance ------------")
                 params['use_static_sigma'] = False
                 params['sigma_layer_diff'] = False
-                inputs2 = utils.data_cube_translation(inputs, s2_grids, params)  
-                utils.visualize_cube_sphere(origins, inputs2, labels, s2_grids, params, folder='sphere')
+                inputs2 = utils.data_sphere_translation(inputs, s2_grids, params)  
+                utils.visualize_sphere_sphere(origins, inputs2, labels, s2_grids, params, folder='sphere')
                 
                 print("\n---------- Layer Diff ------------")
                 params['use_static_sigma'] = False
                 params['sigma_layer_diff'] = True
-                inputs3 = utils.data_cube_translation(inputs, s2_grids, params)  
-                utils.visualize_cube_sphere(origins, inputs3, labels, s2_grids, params, folder='sphere')
+                inputs3 = utils.data_sphere_translation(inputs, s2_grids, params)  
+                utils.visualize_sphere_sphere(origins, inputs3, labels, s2_grids, params, folder='sphere')
                 return
             else:
                 # Data Translation
-                inputs = utils.data_cube_translation(inputs, s2_grids, params) # list( list( Tensor([B, 2b, 2b]) * num_grids ) * num_centers)
+                inputs = utils.data_sphere_translation(inputs, s2_grids, params) # list( list( Tensor([B, 2b, 2b]) * num_grids ) * num_centers)
             
             """ Run Model """
             outputs = model(inputs)
@@ -262,7 +262,6 @@ if __name__ == '__main__':
         'density_radius': args.density_radius,
  
         'rotate_deflection':  args.rotate_deflection,
-        'cube_size':          args.cube_size,
         'num_grids':          args.num_grids,
         'base_radius':        args.base_radius,
         'static_sigma':       args.static_sigma,

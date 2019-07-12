@@ -36,7 +36,6 @@ def load_args():
 
     # Multi-Grid
     parser.add_argument('--rotate_deflection', default=0.1, type=float, metavar='N', help='rotation deflection for testing')
-    parser.add_argument('--cube_size', default=2, type=int, metavar='N', help='size of cube grid')
     parser.add_argument('--num_grids', default=3, type=int, metavar='N', help='number of shells')
     parser.add_argument('--base_radius', default=1, type=int, metavar='N', help='radius of the out-est shell')
 
@@ -117,6 +116,120 @@ def load_data_h5(params, data_type, shuffle=True, num_workers=4, rotate=False, b
     return train_loader_dataset
 
 
+def get_spheres(scale=1, subdiv=1, radius=0.562):
+    middle_point_cache = {}
+    
+    def vertex(x, y, z):
+        """ Return vertex coordinates fixed to the unit sphere """
+        length = np.sqrt(x**2 + y**2 + z**2)
+        return [(i * scale) / length for i in (x,y,z)]
+
+
+    def middle_point(point_1, point_2):
+        """ Find a middle point and project to the unit sphere """
+        smaller_index = min(point_1, point_2)
+        greater_index = max(point_1, point_2)
+
+        key = "{0}-{1}".format(smaller_index, greater_index)
+
+        if key in middle_point_cache:
+            return middle_point_cache[key]
+
+        # If it's not in cache, then we can cut it
+        vert_1 = verts[point_1]
+        vert_2 = verts[point_2]
+        middle = [sum(i)/2 for i in zip(vert_1, vert_2)]
+
+        verts.append(vertex(*middle))
+
+        index = len(verts) - 1
+        middle_point_cache[key] = index
+
+        return index
+
+    PHI = (1 + np.sqrt(5)) / 2
+
+    verts = [ vertex(-1, PHI, 0), 
+         vertex( 1, PHI, 0), 
+         vertex(-1, -PHI, 0), 
+         vertex( 1, -PHI, 0), 
+         vertex(0, -1, PHI), 
+         vertex(0, 1, PHI), 
+         vertex(0, -1, -PHI), 
+         vertex(0, 1, -PHI), 
+         vertex( PHI, 0, -1), 
+         vertex( PHI, 0, 1), 
+         vertex(-PHI, 0, -1), 
+         vertex(-PHI, 0, 1), ]
+
+    faces = [ 
+        # 5 faces around point 0 
+        [0, 11, 5], 
+        [0, 5, 1], 
+        [0, 1, 7], 
+        [0, 7, 10], 
+        [0, 10, 11], 
+        # Adjacent faces 
+        [1, 5, 9], 
+        [5, 11, 4], 
+        [11, 10, 2], 
+        [10, 7, 6], 
+        [7, 1, 8], 
+        # 5 faces around 3 
+        [3, 9, 4], 
+        [3, 4, 2], 
+        [3, 2, 6], 
+        [3, 6, 8], 
+        [3, 8, 9], 
+        # Adjacent faces 
+        [4, 9, 5], 
+        [2, 4, 11], 
+        [6, 2, 10], 
+        [8, 6, 7], 
+        [9, 8, 1], 
+    ]
+    
+#     # Generate based dots on Sphere surface [12 spheres -> 42 spheres]
+#     for i in range(subdiv): 
+#         faces_subdiv = [] 
+#         for tri in faces: 
+#             v1 = middle_point(tri[0], tri[1]) 
+#             v2 = middle_point(tri[1], tri[2]) 
+#             v3 = middle_point(tri[2], tri[0]) 
+#             faces_subdiv.append([tri[0], v1, v3]) 
+#             faces_subdiv.append([tri[1], v2, v1]) 
+#             faces_subdiv.append([tri[2], v3, v2]) 
+#             faces_subdiv.append([v1, v2, v3]) 
+#         faces = faces_subdiv
+
+    def get_radius(scale, verts):
+        min_dist = find_min_dist(verts)
+        d = 0.5 * min_dist / np.cos(np.pi / 6) 
+
+        x = verts[5]
+
+        v = np.random.rand(3)
+        v = v - np.matmul(v, x) * x
+        v = v / norm(v) * d
+
+        p = np.cos(norm(v)) * x + np.sin(norm(v)) * v / norm(v)
+
+        origin = np.array([0, 0, 0])
+        center = 0.5 * (origin + x)
+
+        radius = euclidean_distance(p, center)
+
+        return radius
+    
+    # Get embedding sphere centers
+    centers = []
+    origin = np.array([0, 0, 0])
+    for vert in verts:
+        center = 0.5 * (origin + vert)
+        centers.append(center)
+    
+    return centers, radius
+
 def get_grids(b, num_grids, base_radius=1, center=[0, 0, 0], grid_type="Driscoll-Healy"):
     """
     :param b: the number of grids on the sphere
@@ -163,36 +276,21 @@ def get_grids(b, num_grids, base_radius=1, center=[0, 0, 0], grid_type="Driscoll
     return grids
 
 
-def get_cube_grids(b, cube_size, num_grids, base_radius):
+def get_sphere_grids(b, num_grids, base_radius):
     """
     return: [center, [(radius, tensor([2b, 2b, 3])) * num_grids]] * num_centers
     """
-    # Create sphere centers
-    x_ = np.linspace(-(cube_size - 1) * base_radius/cube_size, (cube_size - 1) * base_radius/cube_size, cube_size)
-    y_ = np.linspace(-(cube_size - 1) * base_radius/cube_size, (cube_size - 1) * base_radius/cube_size, cube_size)
-    z_ = np.linspace(-(cube_size - 1) * base_radius/cube_size, (cube_size - 1) * base_radius/cube_size, cube_size)
-
-    x, y, z = np.meshgrid(x_, y_, z_, indexing='ij')
-
-    x = x.flatten()
-    y = y.flatten()
-    z = z.flatten()
     
-    centers = np.array(list(zip(x, y, z)))
+    centers, R = get_spheres()
     
     # Create grids based on each center
     all_grids = []
-    R = 2 * base_radius * 1/cube_size * np.sqrt(3) * 1/2
     for center in centers:
         grids = get_grids(b, num_grids, base_radius=R, center=center)
-        # grids = torch.stack(grids, dim=0) # tensor -> [num_grids, 2b, 2b, 3]
-        # all_grids.append(grids)
         all_grids.append([center, grids]) # tensor -> [center, [(radius, tensor([2b, 2b, 3])) * num_grids]]
-    # all_grids = torch.stack(all_grids, dim=0) # tensor -> [num_centers, num_grids, 2b, 2b, 3]
     return all_grids
 
-
-def visualize_cube_grids(s2_grids, params, folder='grid', colors=["#7b0001", "#ff0001", "#ff8db4"]):
+def visualize_sphere_grids(s2_grids, params, folder='grid', colors=["#7b0001", "#ff0001", "#ff8db4"]):
     fig = ipv.figure()
     for _, layer_grids in s2_grids:
         for i, (_, shell) in enumerate(layer_grids):
@@ -201,10 +299,10 @@ def visualize_cube_grids(s2_grids, params, folder='grid', colors=["#7b0001", "#f
             y_axis = shell[1, :].cpu().numpy()
             z_axis = shell[2, :].cpu().numpy()
             ipv.scatter(x_axis, y_axis, z_axis, marker="sphere", color=colors[i])
-    ipv.save("./imgs/{}/s2_grids_cube[{}].html".format(folder, params['cube_size']))
+    ipv.save("./imgs/{}/s2_sphere_sphere.html".format(folder))
     
         
-def visualize_cube_sphere(origins, data, labels, s2_grids, params, folder='sphere', num_selections=5):
+def visualize_sphere_sphere(origins, data, labels, s2_grids, params, folder='sphere', num_selections=5):
     """
     data :  list( list( Tensor([B, 1, 2b0, 2b0]) * num_grids ) * num_centers)
     s2_grids: [center, [(radius, tensor([2b, 2b, 3])) * num_grids]]
@@ -226,7 +324,7 @@ def visualize_cube_sphere(origins, data, labels, s2_grids, params, folder='spher
                 grid = grid.detach().cpu().numpy() # [2b, 2b]
                 axs[k].set_title('Label {}, Center {}, Layer {}'.format(label, j, k))
                 axs[k].imshow(grid)
-            plt.savefig('./imgs/{}/{}/map/cube[{}]-label[{}]-center[{}]-map.png'.format(folder, subfolder, params['cube_size'], label, j))
+            plt.savefig('./imgs/{}/{}/map/sphere-label[{}]-center[{}]-map.png'.format(folder, subfolder, label, j))
             plt.close()
             
     for i in range(num_selections):
@@ -258,7 +356,7 @@ def visualize_cube_sphere(origins, data, labels, s2_grids, params, folder='spher
                 
                 ipv.scatter(x, y, z, marker='sphere', color=color)
                 
-        ipv.save('./imgs/{}/{}/grid/cube[{}]-label[{}]-grid.html'.format(folder, subfolder, params['cube_size'], label))
+        ipv.save('./imgs/{}/{}/grid/sphere-label[{}]-grid.html'.format(folder, subfolder, label))
 
         
 def data_mapping(inputs, base_radius=1):
@@ -380,7 +478,7 @@ def data_cropping(data, inner_radius, radius):
     return index
 
 
-def data_cube_cropping(data, center, inner_radius, radius):
+def data_sphere_cropping(data, center, inner_radius, radius):
     """
     Crop the valid data points needed for the given radius
     :param data: [B, N, 3]
@@ -399,7 +497,7 @@ def data_cube_cropping(data, center, inner_radius, radius):
     return index
 
 
-def data_cube_translation(inputs, s2_grids, params):
+def data_sphere_translation(inputs, s2_grids, params):
     """
     s2_grids: [[center, [(radius, tensor([2b, 2b, 3])) * num_grids]] * num_centers]
     :return: list( list( Tensor([B, 2b, 2b]) * num_grids ) * num_centers)
@@ -412,7 +510,7 @@ def data_cube_translation(inputs, s2_grids, params):
         inner_radius = 0.0
         mappings = list()
         for i, (radius, shell) in enumerate(grids):
-            index = data_cube_cropping(inputs, center, inner_radius, radius) # [B, N, 1] with invalid points left zeros
+            index = data_sphere_cropping(inputs, center, inner_radius, radius) # [B, N, 1] with invalid points left zeros
             mapping = density_mapping(
                 b=params['bandwidth_0'],
                 inputs=inputs,
@@ -473,119 +571,7 @@ def data_translation(inputs, s2_grids, params, sigma_diags):
 def euclidean_distance(p1, p2):
     return np.sqrt(sum(np.square(np.array(list(map(lambda x: x[0] - x[1], zip(p1, p2)))))))
 
-def get_spheres(scale, subdiv=1, radius=0.562):
-    middle_point_cache = {}
-    
-    def vertex(x, y, z):
-        """ Return vertex coordinates fixed to the unit sphere """
-        length = np.sqrt(x**2 + y**2 + z**2)
-        return [(i * scale) / length for i in (x,y,z)]
 
-
-    def middle_point(point_1, point_2):
-        """ Find a middle point and project to the unit sphere """
-        smaller_index = min(point_1, point_2)
-        greater_index = max(point_1, point_2)
-
-        key = "{0}-{1}".format(smaller_index, greater_index)
-
-        if key in middle_point_cache:
-            return middle_point_cache[key]
-
-        # If it's not in cache, then we can cut it
-        vert_1 = verts[point_1]
-        vert_2 = verts[point_2]
-        middle = [sum(i)/2 for i in zip(vert_1, vert_2)]
-
-        verts.append(vertex(*middle))
-
-        index = len(verts) - 1
-        middle_point_cache[key] = index
-
-        return index
-
-    PHI = (1 + np.sqrt(5)) / 2
-
-    verts = [ vertex(-1, PHI, 0), 
-         vertex( 1, PHI, 0), 
-         vertex(-1, -PHI, 0), 
-         vertex( 1, -PHI, 0), 
-         vertex(0, -1, PHI), 
-         vertex(0, 1, PHI), 
-         vertex(0, -1, -PHI), 
-         vertex(0, 1, -PHI), 
-         vertex( PHI, 0, -1), 
-         vertex( PHI, 0, 1), 
-         vertex(-PHI, 0, -1), 
-         vertex(-PHI, 0, 1), ]
-
-    faces = [ 
-        # 5 faces around point 0 
-        [0, 11, 5], 
-        [0, 5, 1], 
-        [0, 1, 7], 
-        [0, 7, 10], 
-        [0, 10, 11], 
-        # Adjacent faces 
-        [1, 5, 9], 
-        [5, 11, 4], 
-        [11, 10, 2], 
-        [10, 7, 6], 
-        [7, 1, 8], 
-        # 5 faces around 3 
-        [3, 9, 4], 
-        [3, 4, 2], 
-        [3, 2, 6], 
-        [3, 6, 8], 
-        [3, 8, 9], 
-        # Adjacent faces 
-        [4, 9, 5], 
-        [2, 4, 11], 
-        [6, 2, 10], 
-        [8, 6, 7], 
-        [9, 8, 1], 
-    ]
-    
-    # Generate based dots on Sphere surface
-    for i in range(subdiv): 
-        faces_subdiv = [] 
-        for tri in faces: 
-            v1 = middle_point(tri[0], tri[1]) 
-            v2 = middle_point(tri[1], tri[2]) 
-            v3 = middle_point(tri[2], tri[0]) 
-            faces_subdiv.append([tri[0], v1, v3]) 
-            faces_subdiv.append([tri[1], v2, v1]) 
-            faces_subdiv.append([tri[2], v3, v2]) 
-            faces_subdiv.append([v1, v2, v3]) 
-        faces = faces_subdiv
-
-    def get_radius(scale, verts):
-        min_dist = find_min_dist(verts)
-        d = 0.5 * min_dist / np.cos(np.pi / 6) 
-
-        x = verts[5]
-
-        v = np.random.rand(3)
-        v = v - np.matmul(v, x) * x
-        v = v / norm(v) * d
-
-        p = np.cos(norm(v)) * x + np.sin(norm(v)) * v / norm(v)
-
-        origin = np.array([0, 0, 0])
-        center = 0.5 * (origin + x)
-
-        radius = euclidean_distance(p, center)
-
-        return radius
-    
-    # Get embedding sphere centers
-    centers = []
-    origin = np.array([0, 0, 0])
-    for vert in verts:
-        center = 0.5 * (origin + vert)
-        centers.append(center)
-    
-    return centers, radius
 
 
 
