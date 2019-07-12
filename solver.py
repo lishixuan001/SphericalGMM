@@ -19,12 +19,11 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def eval(test_iterator, model, params, logger, num_epochs=10):
+def eval(model, params, logger, num_epochs=3, rotate=True):
     
     logger.info("================================ Eval ================================\n")
     
     s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
-
     acc_overall = list()
     test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
     for epoch in range(num_epochs):
@@ -68,7 +67,6 @@ def test(params, date_time, num_epochs=1000):
     model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
 
     # Generate the grids
-    # [(radius, tensor([2b, 2b, 3])) * 3]
     s2_grids = utils.get_grids(b=params['bandwidth_0'], num_grids=params['num_grids'], base_radius=params['base_radius'])
 
     test_iterator = utils.load_data_h5(params['test_dir'], batch_size=params['batch_size'], rotate=True, batch=False)
@@ -85,10 +83,6 @@ def test(params, date_time, num_epochs=1000):
 
                 # Data Mapping
                 inputs = utils.data_mapping(inputs, base_radius=params['base_radius'])  # [B, N, 3]
-
-                # Data Translation
-                inputs = utils.data_translation(inputs, s2_grids,
-                                                params)  # [B, N, 3] -> list( Tensor([B, 2b, 2b]) * num_grids )
 
                 outputs = model(inputs)
                 outputs = torch.argmax(outputs, dim=-1)
@@ -135,7 +129,8 @@ def train(params):
         utils.visualize_grids(s2_grids)
     
     # Keep track of max Accuracy during training
-    acc, max_acc = 0, 0
+    non_rotate_acc, rotate_acc = 0, 0
+    max_non_rotate_acc, max_rotate_acc = 0, 0
     
     # Fix Sigma to update per 3 epochs
     for name, param in model.named_parameters():
@@ -148,9 +143,14 @@ def train(params):
     for epoch in range(params['num_epochs']):
 
         # Save the model for each step
-        if acc > max_acc:
-            max_acc = acc
-            save_path = os.path.join(params['save_dir'], '{date_time}-[{acc}]-model.ckpt'.format(date_time=date_time, acc=acc))
+        if non_rotate_acc > max_non_rotate_acc:
+            max_non_rotate_acc = non_rotate_acc
+            save_path = os.path.join(params['save_dir'], '{date_time}-NR-[{acc}]-model.ckpt'.format(date_time=date_time, acc=non_rotate_acc))
+            torch.save(model.state_dict(), save_path)
+            logger.info('Saved model checkpoints into {}...'.format(save_path))
+        if rotate_acc > max_rotate_acc:
+            max_rotate_acc = rotate_acc
+            save_path = os.path.join(params['save_dir'], '{date_time}-R-[{acc}]-model.ckpt'.format(date_time=date_time, acc=rotate_acc))
             torch.save(model.state_dict(), save_path)
             logger.info('Saved model checkpoints into {}...'.format(save_path))
 
@@ -189,15 +189,25 @@ def train(params):
                                                                                                 loss=np.mean(
                                                                                                     running_loss)))
 
-        acc = eval(test_iterator, model, params, logger)
+        non_rotate_acc = eval(model, params, logger, rotate=False)
         logger.info(
-            "**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
+            "**************** [NR] Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
                                                                                                           total_epoch=
                                                                                                           params[
                                                                                                               'num_epochs'],
                                                                                                           loss=np.mean(
                                                                                                               running_loss),
-                                                                                                          acc=acc))
+                                                                                                          acc=non_rotate_acc))
+        
+        rotate_acc = eval(model, params, logger, rotate=True)
+        logger.info(
+            "**************** [R] Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
+                                                                                                          total_epoch=
+                                                                                                          params[
+                                                                                                              'num_epochs'],
+                                                                                                          loss=np.mean(
+                                                                                                              running_loss),
+                                                                                                          acc=rotate_acc))   
 
     logger.info('Finished Training')
 
