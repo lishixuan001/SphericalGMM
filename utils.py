@@ -7,6 +7,8 @@ import torch.nn.functional as func
 import lie_learn.spaces.S2 as S2
 import argparse
 import math
+import matplotlib
+matplotlib.use('agg')
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import ipyvolume as ipv
@@ -116,7 +118,7 @@ def load_data_h5(params, data_type, shuffle=True, num_workers=4, rotate=False, b
     return train_loader_dataset
 
 
-def get_spheres(scale=1, subdiv=1, radius=0.562):
+def get_spheres(scale=1, subdiv=1, radius=0.675):
     middle_point_cache = {}
     
     def vertex(x, y, z):

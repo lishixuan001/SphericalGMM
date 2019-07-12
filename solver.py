@@ -16,6 +16,8 @@ from logger import setup_logger
 import lie_learn.spaces.S2 as S2
 from model import SphericalGMMNet
 from pdb import set_trace as st
+import matplotlib
+matplotlib.use('agg')
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
