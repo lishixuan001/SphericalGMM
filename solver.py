@@ -125,8 +125,7 @@ def train(params):
     # Resume If Asked
     date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     if params['resume_training']:
-        date_time = params['resume_training']
-        model_path = os.path.join(params['save_dir'], '{date_time}-model.ckpt'.format(date_time=date_time))
+        model_path = os.path.join(params['save_dir'], params['resume_training'])
         model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
 
     # Display Parameters
@@ -222,7 +221,7 @@ def train(params):
 
         non_rotate_acc = eval(model, params, logger, rotate=False)
         logger.info(
-            "**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
+            "**************** [NR] Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
                                                                                                           total_epoch=
                                                                                                           params[
                                                                                                               'num_epochs'],
@@ -232,7 +231,7 @@ def train(params):
         
         rotate_acc = eval(model, params, logger, rotate=True)
         logger.info(
-            "**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
+            "**************** [R] Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
                                                                                                           total_epoch=
                                                                                                           params[
                                                                                                               'num_epochs'],
