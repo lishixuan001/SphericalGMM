@@ -19,7 +19,7 @@ def load_args():
     parser.add_argument('--data_path', default='../dataset/mnist', type=str, metavar='XXX', help='Path to the model')
     parser.add_argument('--batch_size', default=64, type=int, metavar='N', help='Batch size of test set')
     parser.add_argument('--num_epochs', default=300, type=int, metavar='N', help='Epoch to run')
-    parser.add_argument('--num_points', default=512, type=icdnt, metavar='N', help='Number of points in a image')
+    parser.add_argument('--num_points', default=512, type=int, metavar='N', help='Number of points in a image')
     parser.add_argument('--log_interval', default=1000, type=int, metavar='N', help='log_interval')
     parser.add_argument('--baselr', default=5e-5, type=float, metavar='N', help='learning rate')
     parser.add_argument('--gpu', default='7', type=str, metavar='XXX', help='GPU number')
