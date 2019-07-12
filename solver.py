@@ -137,6 +137,12 @@ def train(params):
     # Keep track of max Accuracy during training
     acc, max_acc = 0, 0
     
+    # Fix Sigma to update per 3 epochs
+    for name, param in model.named_parameters():
+        if name == 'sigma_diag':
+            param_sigma_diag = (param,)
+    optimizer_sigma_diag = torch.optim.Adam(param_sigma_diag, lr=params['baselr'])
+            
     # Iterate by Epoch
     logger.info("Start Training")
     for epoch in range(params['num_epochs']):
@@ -166,9 +172,13 @@ def train(params):
             outputs = model(inputs)
 
             """ Back Propagation """
+            optimizer_sigma_diag.zero_grad()
             loss = cls_criterion(outputs, labels.squeeze())
             loss.backward(retain_graph=True)
             optim.step()
+            if epoch % 3 == 0:
+                optimizer_sigma_diag.step()
+            
             running_loss.append(loss.item())
 
             # Update Loss Per Batch
