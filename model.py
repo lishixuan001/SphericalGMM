@@ -249,7 +249,6 @@ class SphericalGMMNet(nn.Module):
         """
 
         # S2 Conv 
-        
         x = [self.conv0_0(x[0]), # -> [B, f1, 2b1, 2b1, 2b1] * num_grids
              self.conv0_1(x[1]), 
              self.conv0_2(x[2])]

@@ -19,7 +19,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def eval(test_iterator, model, params, logger, num_epochs=10):
+def eval(test_iterator, model, params, logger, rotate=True, num_epochs=5):
     
     logger.info("================================ Eval ================================\n")
     
@@ -139,16 +139,22 @@ def train(params):
         utils.visualize_grids(s2_grids)
     
     # Keep track of max Accuracy during training
-    acc, max_acc = 0, 0
+    acc_nr, max_acc_nr = 0, 0
+    acc_r, max_acc_r = 0, 0
     
     # Iterate by Epoch
     logger.info("Start Training")
     for epoch in range(params['num_epochs']):
 
         # Save the model for each step
-        if acc > max_acc:
-            max_acc = acc
-            save_path = os.path.join(params['save_dir'], '{date_time}-[{acc}]-model.ckpt'.format(date_time=date_time, acc=acc))
+        if acc_nr > max_acc_nr:
+            max_acc_nr = acc_nr
+            save_path = os.path.join(params['save_dir'], '{date_time}-[NR]-[{acc}]-model.ckpt'.format(date_time=date_time, acc=acc_nr))
+            torch.save(model.state_dict(), save_path)
+            logger.info('Saved model checkpoints into {}...'.format(save_path))
+        if acc_r > max_acc_r:
+            max_acc_r = acc_r
+            save_path = os.path.join(params['save_dir'], '{date_time}-[R]-[{acc}]-model.ckpt'.format(date_time=date_time, acc=acc_r))
             torch.save(model.state_dict(), save_path)
             logger.info('Saved model checkpoints into {}...'.format(save_path))
 
@@ -212,15 +218,24 @@ def train(params):
                                                                                                 loss=np.mean(
                                                                                                     running_loss)))
 
-        acc = eval(test_iterator, model, params, logger)
+        acc_nr = eval(test_iterator, model, params, logger, rotate=False)
         logger.info(
-            "**************** Epoch: [{epoch}/{total_epoch}] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
+            "**************** Epoch: [{epoch}/{total_epoch}] [NR] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
                                                                                                           total_epoch=
                                                                                                           params[
                                                                                                               'num_epochs'],
                                                                                                           loss=np.mean(
                                                                                                               running_loss),
-                                                                                                          acc=acc))
+                                                                                                          acc=acc_nr))
+        acc_r = eval(test_iterator, model, params, logger, rotate=True)
+        logger.info(
+            "**************** Epoch: [{epoch}/{total_epoch}] [R] Accuracy: [{acc}] ****************\n".format(epoch=epoch,
+                                                                                                          total_epoch=
+                                                                                                          params[
+                                                                                                              'num_epochs'],
+                                                                                                          loss=np.mean(
+                                                                                                              running_loss),
+                                                                                                          acc=acc_r))
 
     logger.info('Finished Training')
 
