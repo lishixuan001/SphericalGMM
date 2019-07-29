@@ -145,18 +145,19 @@ def train(params):
     # Iterate by Epoch
     logger.info("Start Training")
     for epoch in range(params['num_epochs']):
-
-        # Save the model for each step
-        if acc_nr > max_acc_nr:
-            max_acc_nr = acc_nr
-            save_path = os.path.join(params['save_dir'], '{date_time}-[NR]-[{acc}]-model.ckpt'.format(date_time=date_time, acc=acc_nr))
-            torch.save(model.state_dict(), save_path)
-            logger.info('Saved model checkpoints into {}...'.format(save_path))
-        if acc_r > max_acc_r:
-            max_acc_r = acc_r
-            save_path = os.path.join(params['save_dir'], '{date_time}-[R]-[{acc}]-model.ckpt'.format(date_time=date_time, acc=acc_r))
-            torch.save(model.state_dict(), save_path)
-            logger.info('Saved model checkpoints into {}...'.format(save_path))
+        
+        if params['save_model']:
+            # Save the model for each step
+            if acc_nr > max_acc_nr:
+                max_acc_nr = acc_nr
+                save_path = os.path.join(params['save_dir'], '{date_time}-[NR]-[{acc}]-model.ckpt'.format(date_time=date_time, acc=acc_nr))
+                torch.save(model.state_dict(), save_path)
+                logger.info('Saved model checkpoints into {}...'.format(save_path))
+            if acc_r > max_acc_r:
+                max_acc_r = acc_r
+                save_path = os.path.join(params['save_dir'], '{date_time}-[R]-[{acc}]-model.ckpt'.format(date_time=date_time, acc=acc_r))
+                torch.save(model.state_dict(), save_path)
+                logger.info('Saved model checkpoints into {}...'.format(save_path))
 
         running_loss = []
         for batch_idx, (inputs, labels) in enumerate(train_iterator):
@@ -254,6 +255,7 @@ if __name__ == '__main__':
         'batch_size': args.batch_size,
         'num_points': args.num_points,
         'visualize' : bool(args.visualize),
+        'save_model': bool(args.save_model),
 
         'log_interval': args.log_interval,
         'save_interval': args.save_interval,
@@ -266,7 +268,6 @@ if __name__ == '__main__':
         'use_static_sigma':   bool(args.use_static_sigma),
         'use_weights':        bool(args.use_weights),
         'sigma_layer_diff':   bool(args.sigma_layer_diff),
-
 
         'feature_out1': 8,
         'feature_out2': 16,

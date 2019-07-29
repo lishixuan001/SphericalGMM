@@ -30,6 +30,7 @@ def load_args():
     parser.add_argument('--baselr', default=5e-5, type=float, metavar='N', help='learning rate')
     parser.add_argument('--gpu', default='3', type=str, metavar='XXX', help='GPU number')
     parser.add_argument('--visualize', default=0, type=int, metavar='XXX', help='if do visualization')
+    parser.add_argument('--save_model', default=0, type=int, metavar='XXX', help='if save model checkpoint')
     
     # Modal Structure
     parser.add_argument('--num_classes', default='10', type=int, metavar='XXX', help='number of classes for classification') 
@@ -50,6 +51,9 @@ def load_args():
     parser.add_argument('--use_static_sigma', default=0, type=int, metavar='N', help='if use static sigma')
     parser.add_argument('--use_weights', default=0, type=int, metavar='N', help='if use weights for each point for GMM')
     parser.add_argument('--sigma_layer_diff', default=1, type=int, metavar='N', help='if expected sigma different over shells')
+    
+    # Parallel Computing
+    parser.add_argument("--local_rank", default=0, type=int)
     
     args = parser.parse_args()
     return args
@@ -80,7 +84,10 @@ def load_data_h5(data_dir, batch_size, shuffle=True, num_workers=4, rotate=False
             xs = np.dot(xs, rotation_matrix)
 
     ys = np.array(train_labels['label'])
-    train_loader = torch.utils.data.TensorDataset(torch.from_numpy(xs).float(), torch.from_numpy(ys).long())
+    train_loader = torch.utils.data.TensorDataset(
+        torch.from_numpy(xs).float(), 
+        torch.from_numpy(ys).long()
+    )
     train_loader_dataset = torch.utils.data.DataLoader(train_loader, batch_size=batch_size, shuffle=shuffle,
                                                        num_workers=num_workers)
     train_data.close()
