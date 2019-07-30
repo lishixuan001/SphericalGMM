@@ -30,7 +30,7 @@ def load_args():
     parser.add_argument('--baselr', default=5e-5, type=float, metavar='N', help='learning rate')
     parser.add_argument('--gpu', default='3', type=str, metavar='XXX', help='GPU number')
     parser.add_argument('--visualize', default=0, type=int, metavar='XXX', help='if do visualization')
-    parser.add_argument('--save_model', default=0, type=int, metavar='XXX', help='if save model checkpoint')
+    parser.add_argument('--save_model', default=1, type=int, metavar='XXX', help='if save model checkpoint')
     
     # Modal Structure
     parser.add_argument('--num_classes', default='10', type=int, metavar='XXX', help='number of classes for classification') 

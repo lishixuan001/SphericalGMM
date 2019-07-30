@@ -153,16 +153,17 @@ def train(params):
     for epoch in range(params['num_epochs']):
 
         # Save the model for each step
-        if non_rotate_acc > max_non_rotate_acc:
-            max_non_rotate_acc = non_rotate_acc
-            save_path = os.path.join(params['save_dir'], '{date_time}-NR-[{acc}]-model.ckpt'.format(date_time=date_time, acc=non_rotate_acc))
-            torch.save(model.state_dict(), save_path)
-            logger.info('Saved model checkpoints into {}...'.format(save_path))
-        if rotate_acc > max_rotate_acc:
-            max_rotate_acc = rotate_acc
-            save_path = os.path.join(params['save_dir'], '{date_time}-R-[{acc}]-model.ckpt'.format(date_time=date_time, acc=rotate_acc))
-            torch.save(model.state_dict(), save_path)
-            logger.info('Saved model checkpoints into {}...'.format(save_path))
+        if params['save_model']:
+            if non_rotate_acc > max_non_rotate_acc:
+                max_non_rotate_acc = non_rotate_acc
+                save_path = os.path.join(params['save_dir'], '{date_time}-NR-[{acc}]-model.ckpt'.format(date_time=date_time, acc=non_rotate_acc))
+                torch.save(model.state_dict(), save_path)
+                logger.info('Saved model checkpoints into {}...'.format(save_path))
+            if rotate_acc > max_rotate_acc:
+                max_rotate_acc = rotate_acc
+                save_path = os.path.join(params['save_dir'], '{date_time}-R-[{acc}]-model.ckpt'.format(date_time=date_time, acc=rotate_acc))
+                torch.save(model.state_dict(), save_path)
+                logger.info('Saved model checkpoints into {}...'.format(save_path))
 
         # Running Model
         running_loss = []
@@ -261,6 +262,7 @@ if __name__ == '__main__':
         'batch_size': args.batch_size,
         'num_points': args.num_points,
         'visualize' : bool(args.visualize),
+        'save_model': bool(args.save_model),
 
         'log_interval': args.log_interval,
         'save_interval': args.save_interval,
