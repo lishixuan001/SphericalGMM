@@ -1,8 +1,0 @@
-2019-06-04 15:33:04 INFO     Loading Data
-2019-06-04 15:33:04 INFO     Model Setting Up
-2019-06-04 15:33:41 INFO     Loading the trained models from 2019-06-03_20-17-44 ...
-2019-06-04 15:34:38 INFO     [epoch 0] Accuracy: [0.6752373417721519]
-2019-06-04 15:34:53 INFO     [epoch 1] Accuracy: [0.6717761075949367]
-2019-06-04 15:35:08 INFO     [epoch 2] Accuracy: [0.6727650316455697]
-2019-06-04 15:35:23 INFO     [epoch 3] Accuracy: [0.6750395569620253]
-2019-06-04 15:35:37 INFO     [epoch 4] Accuracy: [0.6761273734177216]

@@ -22,7 +22,7 @@ def load_args():
     parser = argparse.ArgumentParser(description='Spherical GMM')
 
     # Model
-    parser.add_argument('--data_path', default='../datasets/mnist', type=str, metavar='XXX', help='Path to the model')
+    parser.add_argument('--data_path', default='/home/lishixuan001/ICSI/datasets/mnist', type=str, metavar='XXX', help='Path to the model')
     parser.add_argument('--batch_size', default=256, type=int, metavar='N', help='Batch size of test set')
     parser.add_argument('--num_epochs', default=500, type=int, metavar='N', help='Epoch to run')
     parser.add_argument('--num_points', default=512, type=int, metavar='N', help='Number of points in a image')
